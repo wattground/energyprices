@@ -17,6 +17,7 @@ PROFILE_OUTPUT_JS = ROOT / "data" / "generation_profiles.js"
 IMPACT_OUTPUT_JSON = ROOT / "data" / "renewable_negative_impact.json"
 IMPACT_OUTPUT_JS = ROOT / "data" / "renewable_negative_impact.js"
 SITE_META_OUTPUT_JS = ROOT / "data" / "site_meta.js"
+PV_PROFILE_SOURCE = ROOT / "data" / "pv_profiles_source.json"
 
 
 def parse_local_datetime(value):
@@ -26,25 +27,6 @@ def parse_local_datetime(value):
 def normalize(values):
     total = sum(values)
     return [value / total if total else 0 for value in values]
-
-
-def solar_profile(month):
-    daylight = {
-        1: (8.0, 16.4), 2: (7.3, 17.3), 3: (6.5, 18.2), 4: (5.9, 19.1),
-        5: (5.3, 20.0), 6: (5.0, 20.7), 7: (5.1, 20.6), 8: (5.8, 19.8),
-        9: (6.4, 18.8), 10: (7.0, 17.7), 11: (7.6, 16.6), 12: (8.1, 16.1),
-    }
-    sunrise, sunset = daylight[month]
-    shape = 1.35 if month in {5, 6, 7, 8} else 1.55
-    values = []
-    for hour in range(24):
-      midpoint = hour + 0.5
-      if midpoint <= sunrise or midpoint >= sunset:
-          values.append(0.0)
-      else:
-          progress = (midpoint - sunrise) / (sunset - sunrise)
-          values.append(math.sin(math.pi * progress) ** shape)
-    return normalize(values)
 
 
 def wind_onshore_profile(month):
@@ -60,12 +42,102 @@ def wind_onshore_profile(month):
     return normalize(values)
 
 
-def generation_profiles_payload():
+def mean_monthly_profiles(profiles):
+    if not profiles:
+        raise ValueError("Cannot average an empty profile list")
+    return {
+        month: [
+            sum(profile[month][hour] for profile in profiles) / len(profiles)
+            for hour in range(24)
+        ]
+        for month in (f"{value:02d}" for value in range(1, 13))
+    }
+
+
+def load_country_pv_profiles(expected_iso3_codes):
+    if not PV_PROFILE_SOURCE.exists():
+        raise FileNotFoundError(f"PV profile source not found: {PV_PROFILE_SOURCE}")
+    with PV_PROFILE_SOURCE.open("r", encoding="utf-8") as handle:
+        source = json.load(handle)
+
+    source_profiles = source["sourceProfiles"]
+    configs = source["countries"]
+    resolved = {}
+    resolving = set()
+
+    def resolve(iso3):
+        if iso3 in resolved:
+            return resolved[iso3]
+        if iso3 in resolving:
+            raise ValueError(f"Circular PV proxy mapping involving {iso3}")
+        if iso3 not in configs:
+            raise KeyError(f"Missing PV profile mapping for {iso3}")
+        resolving.add(iso3)
+        config = configs[iso3]
+
+        if "sourceSheets" in config:
+            sheets = config["sourceSheets"]
+            raw_months = mean_monthly_profiles([
+                source_profiles[sheet]["months"] for sheet in sheets
+            ])
+            source_countries = [{"iso3": iso3, "name": config["name"], "weight": 1.0}]
+            source_sheet_weights = {sheet: 1.0 / len(sheets) for sheet in sheets}
+        else:
+            donors = config["sourceCountries"]
+            donor_profiles = [resolve(donor) for donor in donors]
+            raw_months = mean_monthly_profiles([
+                profile["rawMonths"] for profile in donor_profiles
+            ])
+            source_countries = [
+                {"iso3": donor, "name": configs[donor]["name"], "weight": 1.0 / len(donors)}
+                for donor in donors
+            ]
+            source_sheet_weights = defaultdict(float)
+            for profile in donor_profiles:
+                for item in profile["sourceSheets"]:
+                    source_sheet_weights[item["sheet"]] += item["weight"] / len(donors)
+
+        daily_sums = {month: sum(values) for month, values in raw_months.items()}
+        normalized_months = {
+            month: normalize(values) for month, values in raw_months.items()
+        }
+        result = {
+            "name": config["name"],
+            "label": config["label"],
+            "iso3": iso3,
+            "method": config["method"],
+            "isEstimated": config["method"] == "proxy_mean",
+            "sourceCountries": source_countries,
+            "sourceSheets": [
+                {"sheet": sheet, "weight": weight}
+                for sheet, weight in sorted(source_sheet_weights.items())
+            ],
+            "months": normalized_months,
+            "rawMonths": raw_months,
+            "dailySums": daily_sums,
+        }
+        resolving.remove(iso3)
+        resolved[iso3] = result
+        return result
+
+    for iso3 in configs:
+        resolve(iso3)
+
+    missing = set(expected_iso3_codes) - set(resolved)
+    extra = set(resolved) - set(expected_iso3_codes)
+    if missing or extra:
+        raise ValueError(f"PV country coverage mismatch; missing={sorted(missing)}, extra={sorted(extra)}")
+    return source, resolved
+
+
+def generation_profiles_payload(countries):
+    pv_source, pv_countries = load_country_pv_profiles(countries.values())
     technologies = {
         "solar_pv": {
             "label": "Solar PV",
-            "description": "Synthetic monthly hourly photovoltaic generation profile, normalized so each month sums to 1 across 24 hours.",
-            "months": {},
+            "description": "Country-specific monthly hourly photovoltaic profiles extracted from profili pv.xlsx; proxy countries use documented equal-weight donor averages.",
+            "profileScope": "country",
+            "countries": pv_countries,
         },
         "wind_onshore": {
             "label": "Wind onshore",
@@ -75,13 +147,24 @@ def generation_profiles_payload():
     }
     for month in range(1, 13):
         key = f"{month:02d}"
-        technologies["solar_pv"]["months"][key] = solar_profile(month)
         technologies["wind_onshore"]["months"][key] = wind_onshore_profile(month)
     return {
-        "source": "synthetic profiles generated by scripts/build_negative_prices.py",
-        "normalization": "Each technology-month profile contains 24 hourly weights that sum to 1.",
+        "source": {
+            "solar_pv": str(PV_PROFILE_SOURCE.relative_to(ROOT)).replace("\\", "/"),
+            "wind_onshore": "synthetic profiles generated by scripts/build_negative_prices.py",
+        },
+        "normalization": "The months used for captured prices sum to 1 across 24 hours. Solar rawMonths preserve the workbook's seasonal scale.",
+        "solarProfileMethodology": pv_source["source"],
         "technologies": technologies,
     }
+
+
+def technology_month_profile(technology, iso3, month, preserve_seasonality=False):
+    if technology.get("profileScope") == "country":
+        country_profile = technology["countries"][iso3]
+        key = "rawMonths" if preserve_seasonality else "months"
+        return country_profile[key][month]
+    return technology["months"][month]
 
 
 def blank_impact_bucket(label):
@@ -154,6 +237,7 @@ def build_impact_payload(countries, months_by_country, hourly_rows_by_country, p
         payload["series"][country] = {"technologies": {}}
         observed_days = sorted({item["local_dt"].strftime("%Y-%m-%d") for item in sorted_rows})
 
+        country_iso3 = countries[country]
         for tech_key, tech in profile_payload["technologies"].items():
             years = {}
 
@@ -166,16 +250,21 @@ def build_impact_payload(countries, months_by_country, hourly_rows_by_country, p
                 years[year_key]["months"].setdefault(month_key, blank_impact_bucket(month_key))
                 years[year_key]["months"][month_key].setdefault("days", {})
                 years[year_key]["months"][month_key]["days"][day_key] = blank_impact_bucket(day_label)
-                years[year_key]["totalVolume"] += 1.0
-                years[year_key]["months"][month_key]["totalVolume"] += 1.0
-                years[year_key]["months"][month_key]["days"][day_key]["totalVolume"] = 1.0
+                daily_volume = sum(technology_month_profile(
+                    tech, country_iso3, month_key[5:7], preserve_seasonality=True
+                ))
+                years[year_key]["totalVolume"] += daily_volume
+                years[year_key]["months"][month_key]["totalVolume"] += daily_volume
+                years[year_key]["months"][month_key]["days"][day_key]["totalVolume"] = daily_volume
 
             for item in sorted_rows:
                 local_dt = item["local_dt"]
                 year_key = local_dt.strftime("%Y")
                 month_key = local_dt.strftime("%Y-%m")
                 day_key = local_dt.strftime("%Y-%m-%d")
-                hour_weight = tech["months"][local_dt.strftime("%m")][local_dt.hour]
+                hour_weight = technology_month_profile(
+                    tech, country_iso3, local_dt.strftime("%m"), preserve_seasonality=True
+                )[local_dt.hour]
                 if item["price"] < 0:
                     years[year_key]["negativeVolume"] += hour_weight
                     years[year_key]["months"][month_key]["negativeVolume"] += hour_weight
@@ -433,7 +522,7 @@ def main():
         "series": series,
     }
 
-    profile_payload = generation_profiles_payload()
+    profile_payload = generation_profiles_payload(countries)
     spot_series = {}
     for country, months in months_by_country.items():
         years = sorted({month[:4] for month in months})
@@ -474,7 +563,11 @@ def main():
                     captured_prices = {
                         tech_key: captured_price(
                             day_prices,
-                            technology["months"][month_key[5:7]],
+                            technology_month_profile(
+                                technology,
+                                countries[country],
+                                month_key[5:7],
+                            ),
                         )
                         for tech_key, technology in profile_payload["technologies"].items()
                     }

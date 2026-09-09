@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experimental PV profile viewer</title>
+  <style>
+    :root {
+      --bg: #f6f7f2;
+      --panel: #fff;
+      --ink: #18201c;
+      --muted: #667069;
+      --line: #d9dfd7;
+      --green: #1f8a70;
+      --green-soft: #dff3ec;
+      --amber: #d58b20;
+      --amber-soft: #fff0d4;
+      --shadow: 0 12px 34px rgba(31, 44, 37, 0.1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 38px;
+    }
+    .back-link {
+      display: inline-flex;
+      min-height: 36px;
+      align-items: center;
+      margin-bottom: 18px;
+      color: var(--ink);
+      font-weight: 800;
+      text-decoration: none;
+    }
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1.05;
+    }
+    .subtitle {
+      max-width: 680px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .test-badge {
+      display: inline-flex;
+      margin-top: 12px;
+      border-radius: 999px;
+      background: var(--amber-soft);
+      color: #7b4b08;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(150px, 1fr));
+      gap: 12px;
+      min-width: min(600px, 100%);
+    }
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    select {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 0 12px;
+      font: inherit;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .stat,
+    .chart-panel,
+    .details-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .stat { padding: 14px 16px; }
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .stat strong {
+      display: block;
+      margin-top: 8px;
+      font-size: clamp(18px, 2vw, 28px);
+      line-height: 1.1;
+    }
+    .stat strong.small { font-size: 16px; line-height: 1.35; }
+    .chart-panel { padding: 18px; overflow-x: auto; }
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .legend {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+    }
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--green);
+    }
+    svg { display: block; width: 100%; min-width: 780px; height: auto; }
+    .grid { stroke: var(--line); stroke-width: 1; }
+    .axis { stroke: #8b948e; stroke-width: 1.5; }
+    .tick { fill: var(--muted); font-size: 12px; }
+    .axis-label { fill: var(--muted); font-size: 13px; font-weight: 800; }
+    .area { fill: var(--green-soft); }
+    .profile-line {
+      fill: none;
+      stroke: var(--green);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .point { fill: var(--panel); stroke: var(--green); stroke-width: 2; }
+    .details-panel {
+      display: grid;
+      grid-template-columns: minmax(260px, 0.8fr) minmax(520px, 1.8fr);
+      gap: 22px;
+      margin-top: 14px;
+      padding: 16px;
+    }
+    .method h2 { margin: 0 0 8px; font-size: 16px; }
+    .method p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .chip {
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: #12614f;
+      padding: 6px 9px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .table-wrap { max-height: 340px; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th {
+      position: sticky;
+      top: 0;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .error { color: #9b2f2f; font-weight: 800; }
+    footer { margin-top: 24px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 980px) {
+      header { display: grid; }
+      .controls { min-width: 0; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .details-panel { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      main { width: min(100vw - 20px, 1180px); padding-top: 18px; }
+      .controls, .stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back-link" href="captured_price.html">&lt;-- Back to captured prices</a>
+    <header>
+      <div>
+        <h1>Experimental PV profiles</h1>
+        <p class="subtitle">Inspect the country profiles extracted from the workbook before connecting them to price calculations.</p>
+        <span class="test-badge">Profile preview · same mapping used by the live build</span>
+      </div>
+      <div class="controls">
+        <label>
+          Country
+          <select id="countrySelect"></select>
+        </label>
+        <label>
+          Month
+          <select id="monthSelect"></select>
+        </label>
+        <label>
+          Scale
+          <select id="scaleSelect">
+            <option value="normalized">Normalized daily shape</option>
+            <option value="raw">Original workbook values</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <section class="stats" aria-label="Selected profile summary">
+      <article class="stat"><span>Profile type</span><strong id="methodStat" class="small">-</strong></article>
+      <article class="stat"><span>Peak hour</span><strong id="peakStat">-</strong></article>
+      <article class="stat"><span>Daily sum</span><strong id="dailySumStat">-</strong></article>
+      <article class="stat"><span>Annual weighted sum</span><strong id="annualSumStat">-</strong></article>
+    </section>
+
+    <section class="chart-panel">
+      <div class="chart-head">
+        <div id="chartTitle">Loading profile data...</div>
+        <div class="legend"><i class="swatch"></i><span id="legendLabel">PV profile</span></div>
+      </div>
+      <svg id="chart" viewBox="0 0 1100 520" role="img" aria-labelledby="chartTitle"></svg>
+    </section>
+
+    <section class="details-panel">
+      <div class="method">
+        <h2>Profile construction</h2>
+        <p id="methodText">Loading methodology...</p>
+        <div class="chips" id="sourceChips"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Excel hour</th><th>Original value</th><th>Normalized shape</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>Source: profili pv.xlsx. Hour labels and values are shown as supplied; timezone and interval convention are not specified in the workbook.</footer>
+  </main>
+
+  <script src="data/pv_profiles_experimental.js"></script>
+  <script>
+    const dataset = globalThis.PV_PROFILES_EXPERIMENTAL;
+    const countrySelect = document.querySelector("#countrySelect");
+    const monthSelect = document.querySelector("#monthSelect");
+    const scaleSelect = document.querySelector("#scaleSelect");
+    const chart = document.querySelector("#chart");
+    const chartTitle = document.querySelector("#chartTitle");
+    const legendLabel = document.querySelector("#legendLabel");
+    const methodStat = document.querySelector("#methodStat");
+    const peakStat = document.querySelector("#peakStat");
+    const dailySumStat = document.querySelector("#dailySumStat");
+    const annualSumStat = document.querySelector("#annualSumStat");
+    const methodText = document.querySelector("#methodText");
+    const sourceChips = document.querySelector("#sourceChips");
+    const tableBody = document.querySelector("#tableBody");
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const methodLabels = { direct: "Direct workbook profile", zone_mean: "Mean of market zones", proxy_mean: "Estimated from nearby countries" };
+    const svgElement = (name, attrs = {}, text = "") => {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+      if (text) node.textContent = text;
+      return node;
+    };
+    const formatValue = (value, digits = 6) => Number(value).toFixed(digits);
+
+    function populateControls() {
+      const countries = Object.values(dataset.countries).sort((a, b) => a.name.localeCompare(b.name));
+      countrySelect.innerHTML = countries.map((country) => {
+        const suffix = country.isEstimated ? " · estimated" : "";
+        return `<option value="${country.iso3}">${country.name} (${country.iso3})${suffix}</option>`;
+      }).join("");
+      countrySelect.value = dataset.countries.ITA ? "ITA" : countries[0].iso3;
+      monthSelect.innerHTML = monthNames.map((name, index) => `<option value="${String(index + 1).padStart(2, "0")}">${name}</option>`).join("");
+      monthSelect.value = String(new Date().getMonth() + 1).padStart(2, "0");
+    }
+
+    function drawChart(values, yLabel) {
+      chart.innerHTML = "";
+      const width = 1100;
+      const height = 520;
+      const margin = { top: 34, right: 28, bottom: 58, left: 82 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+      const baseY = margin.top + innerHeight;
+      const maxValue = Math.max(...values) || 1;
+      const yMax = maxValue * 1.12;
+
+      for (let step = 0; step <= 4; step += 1) {
+        const y = margin.top + innerHeight * step / 4;
+        const value = yMax * (1 - step / 4);
+        chart.append(svgElement("line", { class: "grid", x1: margin.left, y1: y, x2: width - margin.right, y2: y }));
+        chart.append(svgElement("text", { class: "tick", x: margin.left - 12, y: y + 4, "text-anchor": "end" }, `${value.toFixed(2)}%`));
+      }
+      chart.append(svgElement("line", { class: "axis", x1: margin.left, y1: baseY, x2: width - margin.right, y2: baseY }));
+      chart.append(svgElement("line", { class: "axis", x1: margin.left, y1: margin.top, x2: margin.left, y2: baseY }));
+      chart.append(svgElement("text", { class: "axis-label", x: margin.left, y: 17 }, yLabel));
+
+      const points = values.map((value, index) => {
+        const x = margin.left + innerWidth * index / 23;
+        const y = baseY - value / yMax * innerHeight;
+        return { x, y, value, hour: dataset.hourLabels[index] };
+      });
+      const areaPoints = [`${points[0].x},${baseY}`, ...points.map(point => `${point.x},${point.y}`), `${points.at(-1).x},${baseY}`].join(" ");
+      chart.append(svgElement("polygon", { class: "area", points: areaPoints }));
+      chart.append(svgElement("polyline", { class: "profile-line", points: points.map(point => `${point.x},${point.y}`).join(" ") }));
+
+      points.forEach((point, index) => {
+        const circle = svgElement("circle", { class: "point", cx: point.x, cy: point.y, r: 4 });
+        circle.append(svgElement("title", {}, `Hour ${point.hour}: ${point.value.toFixed(4)}%`));
+        chart.append(circle);
+        if (index % 2 === 0 || index === 23) {
+          chart.append(svgElement("text", { class: "tick", x: point.x, y: height - 28, "text-anchor": "middle" }, String(point.hour)));
+        }
+      });
+      chart.append(svgElement("text", { class: "axis-label", x: margin.left, y: height - 9 }, "Excel hour label"));
+    }
+
+    function render() {
+      if (!dataset || !dataset.countries) {
+        chartTitle.innerHTML = '<span class="error">Experimental data file not found.</span>';
+        return;
+      }
+      const country = dataset.countries[countrySelect.value];
+      const month = monthSelect.value;
+      const raw = country.months[month];
+      const normalized = country.normalizedMonths[month];
+      const normalizedMode = scaleSelect.value === "normalized";
+      const values = (normalizedMode ? normalized : raw).map(value => value * 100);
+      const peakIndex = values.indexOf(Math.max(...values));
+
+      chartTitle.textContent = `${country.name}: ${monthNames[Number(month) - 1]} PV profile`;
+      legendLabel.textContent = normalizedMode ? "Share of daily PV generation" : "Original workbook value";
+      methodStat.textContent = methodLabels[country.method];
+      peakStat.textContent = `Hour ${dataset.hourLabels[peakIndex]}`;
+      dailySumStat.textContent = `${(country.dailySums[month] * 100).toFixed(3)}%`;
+      annualSumStat.textContent = country.annualWeightedSum.toFixed(4);
+      methodText.textContent = country.isEstimated
+        ? `Equal-weight average of ${country.sourceCountries.map(source => source.name).join(", ")}. Country averages are calculated after any market-zone averages.`
+        : country.method === "zone_mean"
+          ? "Equal-weight average of the available market-zone profiles."
+          : "Profile extracted directly from the corresponding workbook sheet.";
+      sourceChips.innerHTML = country.sourceSheets.map(source => `<span class="chip">${source.sheet} · ${(source.weight * 100).toFixed(1)}%</span>`).join("");
+      tableBody.innerHTML = dataset.hourLabels.map((hour, index) => `
+        <tr>
+          <td>${hour}</td>
+          <td>${formatValue(raw[index], 9)}</td>
+          <td>${(normalized[index] * 100).toFixed(4)}%</td>
+        </tr>
+      `).join("");
+      drawChart(values, normalizedMode ? "Share of daily generation" : "Original workbook value");
+    }
+
+    if (dataset) {
+      populateControls();
+      render();
+      countrySelect.addEventListener("change", render);
+      monthSelect.addEventListener("change", render);
+      scaleSelect.addEventListener("change", render);
+    } else {
+      chartTitle.innerHTML = '<span class="error">Experimental data file not found.</span>';
+    }
+  </script>
+</body>
+</html>

@@ -355,8 +355,15 @@
       }
     }
 
-    function profileFor(monthKey) {
-      return profileData.technologies[technologySelect.value].months[monthKey.slice(5, 7)];
+    function profileFor(countryName, monthKey, preserveSeasonality = false) {
+      const technology = profileData.technologies[technologySelect.value];
+      const month = monthKey.slice(5, 7);
+      if (technology.profileScope === "country") {
+        const country = dataset.countries.find((item) => item.name === countryName);
+        const countryProfile = technology.countries[country.iso3];
+        return (preserveSeasonality ? countryProfile.rawMonths : countryProfile.months)[month];
+      }
+      return technology.months[month];
     }
 
     function capturedForMonth(monthData, weights) {
@@ -373,17 +380,20 @@
       return weightTotal ? weighted / weightTotal : null;
     }
 
-    function capturedForYear(yearData) {
+    function capturedForYear(countryName, yearData) {
       let weighted = 0;
-      let observations = 0;
+      let generationVolume = 0;
       Object.entries(yearData.months).forEach(([monthKey, monthData]) => {
-        const value = capturedForMonth(monthData, profileFor(monthKey));
+        const value = capturedForMonth(monthData, profileFor(countryName, monthKey));
         if (value !== null && monthData.observations) {
-          weighted += value * monthData.observations;
-          observations += monthData.observations;
+          const dailyVolume = profileFor(countryName, monthKey, true)
+            .reduce((sum, current) => sum + current, 0);
+          const monthVolume = dailyVolume * (monthData.observations / 24);
+          weighted += value * monthVolume;
+          generationVolume += monthVolume;
         }
       });
-      return observations ? weighted / observations : null;
+      return generationVolume ? weighted / generationVolume : null;
     }
 
     function countryValue(countryName) {
@@ -393,10 +403,10 @@
       const years = dataset.series[countryName].years;
       if (!years[year]) return null;
       if (priceTypeSelect.value === "captured") {
-        if (granularity === "year") return capturedForYear(years[year]);
+        if (granularity === "year") return capturedForYear(countryName, years[year]);
         const monthData = years[year].months[month];
         if (!monthData) return null;
-        if (granularity === "month") return capturedForMonth(monthData, profileFor(month));
+        if (granularity === "month") return capturedForMonth(monthData, profileFor(countryName, month));
         const dayData = monthData.days.find((day) => String(day.day) === daySelect.value);
         return dayData?.capturedPrices?.[technologySelect.value] ?? null;
       }

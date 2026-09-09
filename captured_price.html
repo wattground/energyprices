@@ -205,7 +205,7 @@
     <header>
       <div>
         <h1>Captured prices &amp; rates</h1>
-        <p class="subtitle">Synthetic generation profiles weighted against hourly wholesale prices.</p>
+        <p class="subtitle">Country-specific solar PV profiles and synthetic wind profiles weighted against hourly wholesale prices.</p>
         <p data-latest-date style="margin: 10px 0 0; color: #25322d; font-size: 14px; font-weight: 800;">Latest available date: loading...</p>
       </div>
       <div class="controls">
@@ -334,7 +334,12 @@
 
     function profileFor(monthKey) {
       const month = monthKey.slice(5, 7);
-      return profileData.technologies[technologySelect.value].months[month];
+      const technology = profileData.technologies[technologySelect.value];
+      if (technology.profileScope === "country") {
+        const country = spotData.countries.find((item) => item.name === countrySelect.value);
+        return technology.countries[country.iso3].months[month];
+      }
+      return technology.months[month];
     }
 
     function capturedForMonth(monthData, weights) {

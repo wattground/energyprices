@@ -11,6 +11,7 @@ on:
     paths:
       - "*.html"
       - "scripts/**"
+      - "data/pv_profiles_source.json"
       - ".github/workflows/update-and-deploy.yml"
 
 permissions:
@@ -55,8 +56,19 @@ jobs:
                   raise SystemExit(f"Missing or empty generated file: {path}")
 
           payload = json.loads((Path("data") / "spot_prices.json").read_text(encoding="utf-8"))
+          profiles = json.loads((Path("data") / "generation_profiles.json").read_text(encoding="utf-8"))
+          expected_iso3 = {country["iso3"] for country in payload["countries"]}
+          solar = profiles["technologies"]["solar_pv"]
+          actual_iso3 = set(solar.get("countries", {}))
+          if solar.get("profileScope") != "country" or actual_iso3 != expected_iso3:
+              raise SystemExit(
+                  "Solar PV profile coverage mismatch: "
+                  f"missing={sorted(expected_iso3 - actual_iso3)}, "
+                  f"extra={sorted(actual_iso3 - expected_iso3)}"
+              )
           print(f"Latest available price date: {payload.get('latestLocalDate')}")
           print(f"Rows processed: {payload.get('generatedFromRows')}")
+          print(f"Country-specific solar PV profiles: {len(actual_iso3)}")
           PY
 
       - name: Assemble static site
