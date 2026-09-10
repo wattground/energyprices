@@ -3,519 +3,57 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Daily Spread</title>
-  <style>
-    :root {
-      --bg: #f6f7f2;
-      --panel: #ffffff;
-      --ink: #18201c;
-      --muted: #667069;
-      --line: #d9dfd7;
-      --green: #1f8a70;
-      --dark: #4a4f4b;
-      --red: #c83f3f;
-      --shadow: 0 12px 34px rgba(31, 44, 37, 0.1);
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--ink);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    main {
-      width: min(1180px, calc(100vw - 32px));
-      margin: 0 auto;
-      padding: 28px 0 38px;
-    }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      min-height: 36px;
-      margin-bottom: 18px;
-      color: var(--ink);
-      font-weight: 800;
-      text-decoration: none;
-    }
-
-    header {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 24px;
-      margin-bottom: 22px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(28px, 4vw, 48px);
-      line-height: 1.05;
-      letter-spacing: 0;
-    }
-
-    .subtitle {
-      max-width: 650px;
-      margin: 10px 0 0;
-      color: var(--muted);
-      font-size: 16px;
-      line-height: 1.5;
-    }
-
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(130px, 1fr));
-      gap: 12px;
-      min-width: min(980px, 100%);
-    }
-
-    label {
-      display: grid;
-      gap: 7px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    select {
-      width: 100%;
-      min-height: 42px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      color: var(--ink);
-      font: inherit;
-      padding: 0 12px;
-    }
-
-    select:disabled {
-      opacity: 0.48;
-    }
-
-    .chart-panel,
-    .table-panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-    }
-
-    .chart-panel {
-      padding: 18px;
-      margin-bottom: 14px;
-    }
-
-    .chart-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 12px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    svg {
-      display: block;
-      width: 100%;
-      height: auto;
-      min-height: 420px;
-    }
-
-    .axis,
-    .grid {
-      stroke: var(--line);
-      stroke-width: 1;
-    }
-
-    .tick,
-    .axis-label {
-      fill: var(--muted);
-      font-size: 12px;
-    }
-
-    .bar {
-      fill: var(--dark);
-    }
-
-    .bar.negative {
-      fill: var(--red);
-    }
-
-    .zero-line {
-      stroke: var(--ink);
-      stroke-width: 1.5;
-      stroke-dasharray: 5 5;
-    }
-
-    .table-panel {
-      max-height: 320px;
-      overflow: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-
-    th,
-    td {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-    }
-
-    th {
-      position: sticky;
-      top: 0;
-      background: var(--panel);
-      color: var(--muted);
-      font-size: 12px;
-      text-transform: uppercase;
-      z-index: 1;
-    }
-
-    @media (max-width: 940px) {
-      header { display: grid; }
-      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-
-    @media (max-width: 560px) {
-      main {
-        width: min(100vw - 20px, 1180px);
-        padding-top: 18px;
-      }
-      .controls,
-      .table-panel {
-        grid-template-columns: 1fr;
-      }
-      .chart-panel { padding: 12px; }
-      svg { min-height: 360px; }
-    }
-  </style>
+  <title>TBx Spreads</title>
+  <link rel="stylesheet" href="data/bess_indexes.css">
 </head>
 <body>
   <main>
-    <a class="back-link" href="spot_prices.html">&lt;-- Back to spot prices</a>
+    <a class="back-link" href="bess_indexes.html">&lt;-- Back to BESS Indexes</a>
     <header>
       <div>
-        <h1>Daily Spread</h1>
-        <p class="subtitle">Difference between daily maximum and minimum wholesale electricity price, aggregated by selected time granularity.</p>
-        <p data-latest-date style="margin: 10px 0 0; color: #25322d; font-size: 14px; font-weight: 800;">Latest available date: loading...</p>
-      </div>
-      <div class="controls">
-        <label>
-          Country
-          <select id="countrySelect"></select>
-        </label>
-        <label>
-          Metric
-          <select id="metricSelect">
-            <option value="oneHourOneCycle">1h x1 cycle</option>
-            <option value="twoHourTwoCycles">2h x2 cycles</option>
-          </select>
-        </label>
-        <label>
-          Year
-          <select id="yearSelect"></select>
-        </label>
-        <label>
-          Month
-          <select id="monthSelect"></select>
-        </label>
-        <label>
-          Granularity
-          <select id="granularitySelect">
-            <option value="day">Day</option>
-            <option value="month">Month</option>
-            <option value="year">Year</option>
-          </select>
-        </label>
+        <h1>TBx Spreads</h1>
+        <p class="subtitle">Theoretical Top-Bottom benchmarks calculated from each day's highest and lowest hourly day-ahead prices, independently of chronological order. Annual values equal the daily result or daily average multiplied by 365.</p>
+        <p class="latest-date" data-latest-date>Latest available date: loading...</p>
       </div>
     </header>
 
-    <section class="chart-panel">
-      <div class="chart-head">
-        <div id="chartTitle">Loading data...</div>
-        <div>EUR/MWh</div>
-      </div>
-      <svg id="chart" viewBox="0 0 1100 520" role="img" aria-labelledby="chartTitle"></svg>
+    <section class="controls" aria-label="TBx filters">
+      <label>Country<select id="countrySelect"></select></label>
+      <label>Index<select id="metricSelect"></select></label>
+      <label>Year<select id="yearSelect"></select></label>
+      <label>Month<select id="monthSelect"></select></label>
+      <label>Granularity<select id="granularitySelect"><option value="day">Day</option><option value="month">Month</option><option value="year">Year</option></select></label>
+      <label>Unit<select id="unitSelect"><option value="day">EUR/MW/day</option><option value="year">EUR/MW/year</option></select></label>
     </section>
 
-    <section class="table-panel">
-      <table>
-        <thead>
-          <tr>
-            <th>Period</th>
-            <th class="col-one-hour">1h x1 cycle</th>
-            <th class="col-two-hour">2h x2 cycles</th>
-            <th>Observations</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
+    <section class="methodology">
+      <div class="method-card"><strong>TB1</strong><span>Highest one-hour price minus the lowest one-hour price.</span></div>
+      <div class="method-card"><strong>TB2</strong><span>Sum of the two highest hourly prices minus the sum of the two lowest.</span></div>
+      <div class="method-card"><strong>TB4</strong><span>Sum of the four highest hourly prices minus the sum of the four lowest.</span></div>
     </section>
-    <footer style="margin-top: 28px; color: #667069; font-size: 13px;">Source: Ember, Entsoe</footer>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div id="chartTitle">Loading data...</div>
+        <div class="panel-metrics"><strong id="periodAverage">Average: -</strong><div class="unit" id="unitLabel">EUR/MW/day</div></div>
+      </div>
+      <div class="chart-scroll"><svg id="chart" viewBox="0 0 1100 500" role="img" aria-labelledby="chartTitle"></svg></div>
+    </section>
+    <section class="panel table-wrap">
+      <table><thead><tr><th>Period</th><th id="valueHeader">TBx spread · EUR/MW/day</th><th id="coverageHeader">Coverage</th></tr></thead><tbody id="tableBody"></tbody></table>
+    </section>
+    <footer>Source: Ember, Entsoe</footer>
   </main>
 
   <script src="data/spot_prices.js"></script>
   <script src="data/site_meta.js"></script>
   <script>
-    const countrySelect = document.querySelector("#countrySelect");
-    const metricSelect = document.querySelector("#metricSelect");
-    const yearSelect = document.querySelector("#yearSelect");
-    const monthSelect = document.querySelector("#monthSelect");
-    const granularitySelect = document.querySelector("#granularitySelect");
-    const chartTitle = document.querySelector("#chartTitle");
-    const chart = document.querySelector("#chart");
-    const tableBody = document.querySelector("#tableBody");
-    let dataset;
-
-    const el = (name, attrs = {}, text = "") => {
-      const node = document.createElementNS("http://www.w3.org/2000/svg", name);
-      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
-      if (text) node.textContent = text;
-      return node;
-    };
-
-    const formatPrice = (value) => value === null || Number.isNaN(value) ? "-" : value.toFixed(2);
-    const formatMonth = (key, style = "long") => {
-      const [year, month] = key.split("-").map(Number);
-      return new Intl.DateTimeFormat("en", { month: style, year: "numeric" }).format(new Date(year, month - 1, 1));
-    };
-
-    function populateCountries() {
-      countrySelect.innerHTML = "";
-      dataset.countries.forEach((country) => {
-        const option = document.createElement("option");
-        option.value = country.name;
-        option.textContent = `${country.name} (${country.iso3})`;
-        countrySelect.append(option);
-      });
-    }
-
-    function countryYears(countryName) {
-      return dataset.countries.find((country) => country.name === countryName).years;
-    }
-
-    function populateYears(countryName) {
-      yearSelect.innerHTML = "";
-      countryYears(countryName).slice().reverse().forEach((year) => {
-        const option = document.createElement("option");
-        option.value = year;
-        option.textContent = year;
-        yearSelect.append(option);
-      });
-      yearSelect.selectedIndex = 0;
-    }
-
-    function populateMonths(countryName, year) {
-      monthSelect.innerHTML = "";
-      const months = Object.keys(dataset.series[countryName].years[year].months).sort();
-      months.forEach((month) => {
-        const option = document.createElement("option");
-        option.value = month;
-        option.textContent = formatMonth(month).replace(` ${year}`, "");
-        monthSelect.append(option);
-      });
-      monthSelect.value = months.at(-1);
-    }
-
-    function updateControlState() {
-      const granularity = granularitySelect.value;
-      yearSelect.disabled = granularity === "year";
-      monthSelect.disabled = granularity !== "day";
-      metricSelect.disabled = false;
-    }
-
-    function selectedRows() {
-      const country = countrySelect.value;
-      const granularity = granularitySelect.value;
-      const countryData = dataset.series[country].years;
-      const year = yearSelect.value || countryYears(country).at(-1);
-      const month = monthSelect.value || Object.keys(countryData[year].months).sort().at(-1);
-
-      if (granularity === "day") {
-        return countryData[year].months[month].days
-          .filter((item) => item.observations > 0)
-          .map((item) => ({
-            label: String(item.day),
-            value: item.dailySpread,
-            valueTwoCycle: item.dailySpreadTwoCycle2h,
-            observations: item.observations,
-          }));
-      }
-
-      if (granularity === "month") {
-        return Object.entries(countryData[year].months)
-          .sort(([left], [right]) => left.localeCompare(right))
-          .map(([monthKey, item]) => ({
-            label: formatMonth(monthKey, "short"),
-            value: item.averageDailySpread,
-            valueTwoCycle: item.averageDailySpreadTwoCycle2h,
-            observations: item.observations,
-          }));
-      }
-
-      return Object.entries(countryData)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([yearKey, item]) => ({
-          label: yearKey,
-          value: item.averageDailySpread,
-          valueTwoCycle: item.averageDailySpreadTwoCycle2h,
-          observations: item.observations,
-        }));
-    }
-
-    function drawChart(rows) {
-      chart.innerHTML = "";
-      const width = 1100;
-      const height = 520;
-      const margin = { top: 42, right: 34, bottom: 70, left: 64 };
-      const innerWidth = width - margin.left - margin.right;
-      const innerHeight = height - margin.top - margin.bottom;
-      const metric = metricSelect.value;
-      const values = rows
-        .map((row) => (metric === "twoHourTwoCycles" ? row.valueTwoCycle : row.value))
-        .filter((value) => value !== null && value !== undefined);
-      const minValue = Math.min(0, ...values);
-      const maxValue = Math.max(1, ...values);
-      const range = maxValue - minValue || 1;
-      const baseY = margin.top + (maxValue / range) * innerHeight;
-      const y = (value) => margin.top + ((maxValue - value) / range) * innerHeight;
-      const xStep = innerWidth / Math.max(1, rows.length);
-      const barWidth = Math.max(8, Math.min(36, xStep * 0.62));
-
-      for (let i = 0; i <= 4; i += 1) {
-        const gridY = margin.top + (innerHeight / 4) * i;
-        const value = maxValue - (range / 4) * i;
-        chart.append(el("line", { class: "grid", x1: margin.left, y1: gridY, x2: width - margin.right, y2: gridY }));
-        chart.append(el("text", { class: "tick", x: 16, y: gridY + 4 }, value.toFixed(0)));
-      }
-
-      chart.append(el("line", { class: "axis", x1: margin.left, y1: margin.top, x2: margin.left, y2: margin.top + innerHeight }));
-      chart.append(el("line", { class: "axis", x1: margin.left, y1: baseY, x2: width - margin.right, y2: baseY }));
-      chart.append(el("line", { class: "zero-line", x1: margin.left, y1: y(0), x2: width - margin.right, y2: y(0) }));
-
-      rows.forEach((row, index) => {
-        const value = metric === "twoHourTwoCycles" ? row.valueTwoCycle : row.value;
-        const centerX = margin.left + xStep * index + xStep / 2;
-        const valueY = y(value);
-        const barY = Math.min(valueY, baseY);
-        const barHeight = Math.max(1, Math.abs(baseY - valueY));
-        chart.append(el("rect", {
-          class: value < 0 ? "bar negative" : "bar",
-          x: centerX - barWidth / 2,
-          y: barY,
-          width: barWidth,
-          height: barHeight,
-          rx: 3,
-        }));
-
-        if (rows.length <= 40) {
-          chart.append(el("text", {
-            class: "tick",
-            x: centerX,
-            y: valueY - 7,
-            "text-anchor": "middle",
-          }, formatPrice(value)));
-        }
-
-        if (rows.length <= 40 || index % Math.ceil(rows.length / 18) === 0) {
-          chart.append(el("text", {
-            class: "tick",
-            x: centerX,
-            y: height - 32,
-            "text-anchor": "middle",
-            transform: rows.length > 18 ? `rotate(-45 ${centerX} ${height - 32})` : "",
-          }, row.label));
-        }
-      });
-
-      chart.append(el("text", { class: "axis-label", x: margin.left, y: height - 16 }, "Period"));
-      chart.append(el("text", { class: "axis-label", x: 16, y: margin.top - 8 }, "EUR/MWh"));
-    }
-
-    function renderTable(rows) {
-      tableBody.innerHTML = "";
-      rows.forEach((row) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${row.label}</td>
-          <td class="col-one-hour">${formatPrice(row.value)}</td>
-          <td class="col-two-hour">${formatPrice(row.valueTwoCycle)}</td>
-          <td>${row.observations.toLocaleString("en")}</td>
-        `;
-        tableBody.append(tr);
-      });
-    }
-
-    function applyMetricVisibility() {
-      const metric = metricSelect.value;
-      const showTwoHour = metric === "twoHourTwoCycles";
-      document.querySelectorAll(".col-one-hour").forEach((cell) => {
-        cell.style.display = showTwoHour ? "none" : "";
-      });
-      document.querySelectorAll(".col-two-hour").forEach((cell) => {
-        cell.style.display = showTwoHour ? "" : "none";
-      });
-    }
-
-    function render() {
-      updateControlState();
-      const rows = selectedRows();
-      const granularity = granularitySelect.value;
-      const country = countrySelect.value;
-      const year = yearSelect.value;
-      const month = monthSelect.value;
-      const metricLabel = metricSelect.value === "twoHourTwoCycles" ? "2h x2 cycles" : "1h x1 cycle";
-      if (granularity === "day") {
-        chartTitle.textContent = `${country}: ${metricLabel}, ${formatMonth(month)} ${year}`;
-      } else if (granularity === "month") {
-        chartTitle.textContent = `${country}: ${metricLabel} by month, ${year}`;
-      } else {
-        chartTitle.textContent = `${country}: ${metricLabel} by year`;
-      }
-      drawChart(rows);
-      renderTable(rows);
-      applyMetricVisibility();
-    }
-
-    function boot(data) {
-      dataset = data;
-      populateCountries();
-      const germany = dataset.countries.find((country) => country.name === "Germany");
-      if (germany) countrySelect.value = germany.name;
-      populateYears(countrySelect.value);
-      yearSelect.value = countryYears(countrySelect.value).at(-1);
-      populateMonths(countrySelect.value, yearSelect.value);
-      render();
-    }
-
-    if (window.SPOT_PRICE_DATA) {
-      boot(window.SPOT_PRICE_DATA);
-    } else {
-      chartTitle.textContent = "Data file not found. Run scripts/build_negative_prices.py first.";
-    }
-
-    countrySelect.addEventListener("change", () => {
-      populateYears(countrySelect.value);
-      yearSelect.value = countryYears(countrySelect.value).at(-1);
-      populateMonths(countrySelect.value, yearSelect.value);
-      render();
-    });
-    metricSelect.addEventListener("change", render);
-    yearSelect.addEventListener("change", () => {
-      populateMonths(countrySelect.value, yearSelect.value);
-      render();
-    });
-    monthSelect.addEventListener("change", render);
-    granularitySelect.addEventListener("change", render);
+    window.SPREAD_DASHBOARD_CONFIG = { metrics: {
+      tb1: { label: "TB1 – Top/Bottom 1 hour", index: 0 },
+      tb2: { label: "TB2 – Top/Bottom 2 hours", index: 1 },
+      tb4: { label: "TB4 – Top/Bottom 4 hours", index: 2 }
+    }};
   </script>
+  <script src="data/spread_dashboard.js"></script>
 </body>
 </html>

@@ -51,7 +51,7 @@
     }
     .nav {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
     }
     a.card,
@@ -101,20 +101,16 @@
     <p data-latest-date style="margin: 10px 0 0; color: #25322d; font-size: 14px; font-weight: 800;">Latest available date: loading...</p>
     <nav class="nav" aria-label="Spot price dashboards">
       <a class="card" href="spot_price_map.html">
-        <strong>Map</strong>
+        <strong>European price map</strong>
         <span>View average spot prices across Europe with country labels.</span>
       </a>
       <a class="card" href="wholesale_average.html">
-        <strong>Wholesale average</strong>
+        <strong>Baseload prices</strong>
         <span>Calculate arithmetic average prices by day, month, or year.</span>
       </a>
-      <a class="card" href="daily_spread.html">
-        <strong>Daily spread</strong>
-        <span>Compare the difference between daily maximum and minimum prices.</span>
-      </a>
       <a class="card" href="captured_price.html">
-        <strong>Captured price</strong>
-        <span>Estimate technology captured prices using synthetic hourly generation profiles.</span>
+        <strong>Renewable prices and discounts</strong>
+        <span>Estimate captured prices using country-specific PV and hourly wind profiles.</span>
       </a>
     </nav>
     <footer style="margin-top: 28px; color: #667069; font-size: 13px;">Source: Ember, Entsoe</footer>

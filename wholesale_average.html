@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Wholesale Average</title>
+  <title>Baseload Prices</title>
   <style>
     :root {
       --bg: #f6f7f2;
@@ -146,6 +146,20 @@
       fill: var(--red);
     }
 
+    .chart-tooltip {
+      position: fixed;
+      z-index: 20;
+      display: none;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: var(--ink);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      pointer-events: none;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
     .zero-line {
       stroke: var(--ink);
       stroke-width: 1.5;
@@ -204,7 +218,7 @@
     <a class="back-link" href="spot_prices.html">&lt;-- Back to spot prices</a>
     <header>
       <div>
-        <h1>Wholesale Average</h1>
+        <h1>Baseload Prices</h1>
         <p class="subtitle">Arithmetic average wholesale electricity prices by country and selected time granularity.</p>
         <p data-latest-date style="margin: 10px 0 0; color: #25322d; font-size: 14px; font-weight: 800;">Latest available date: loading...</p>
       </div>
@@ -265,6 +279,9 @@
     const chartTitle = document.querySelector("#chartTitle");
     const chart = document.querySelector("#chart");
     const tableBody = document.querySelector("#tableBody");
+    const chartTooltip = document.createElement("div");
+    chartTooltip.className = "chart-tooltip";
+    document.body.append(chartTooltip);
     let dataset;
 
     const el = (name, attrs = {}, text = "") => {
@@ -279,6 +296,22 @@
       const [year, month] = key.split("-").map(Number);
       return new Intl.DateTimeFormat("en", { month: style, year: "numeric" }).format(new Date(year, month - 1, 1));
     };
+
+    function attachBarTooltip(bar, text) {
+      bar.append(el("title", {}, text));
+      bar.setAttribute("tabindex", "0");
+      bar.setAttribute("role", "img");
+      bar.setAttribute("aria-label", text);
+      const move = (event) => {
+        chartTooltip.textContent = text;
+        chartTooltip.style.display = "block";
+        chartTooltip.style.left = `${Math.min(event.clientX + 12, window.innerWidth - chartTooltip.offsetWidth - 8)}px`;
+        chartTooltip.style.top = `${Math.max(8, event.clientY - chartTooltip.offsetHeight - 12)}px`;
+      };
+      bar.addEventListener("pointerenter", move);
+      bar.addEventListener("pointermove", move);
+      bar.addEventListener("pointerleave", () => { chartTooltip.style.display = "none"; });
+    }
 
     function populateCountries() {
       countrySelect.innerHTML = "";
@@ -391,23 +424,16 @@
         const valueY = y(row.value);
         const barY = Math.min(valueY, baseY);
         const barHeight = Math.max(1, Math.abs(baseY - valueY));
-        chart.append(el("rect", {
+        const bar = el("rect", {
           class: row.value < 0 ? "bar negative" : "bar",
           x: centerX - barWidth / 2,
           y: barY,
           width: barWidth,
           height: barHeight,
           rx: 3,
-        }));
-
-        if (rows.length <= 40) {
-          chart.append(el("text", {
-            class: "tick",
-            x: centerX,
-            y: valueY - 7,
-            "text-anchor": "middle",
-          }, formatPrice(row.value)));
-        }
+        });
+        attachBarTooltip(bar, `${row.label}: ${formatPrice(row.value)} EUR/MWh`);
+        chart.append(bar);
 
         if (rows.length <= 40 || index % Math.ceil(rows.length / 18) === 0) {
           chart.append(el("text", {

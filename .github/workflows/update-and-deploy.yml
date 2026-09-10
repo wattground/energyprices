@@ -11,6 +11,9 @@ on:
     paths:
       - "*.html"
       - "scripts/**"
+      - "data/bess_indexes.css"
+      - "data/spread_dashboard.js"
+      - "data/bess_ranking.js"
       - "data/pv_profiles_source.json"
       - ".github/workflows/update-and-deploy.yml"
 
@@ -34,6 +37,9 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+
+      - name: Test TBx and BESS index formulas
+        run: python -m unittest scripts/test_bess_indexes.py
 
       - name: Download prices and build dashboard data
         run: python scripts/update_prices.py
@@ -66,9 +72,24 @@ jobs:
                   f"missing={sorted(expected_iso3 - actual_iso3)}, "
                   f"extra={sorted(actual_iso3 - expected_iso3)}"
               )
+          spread_order = [
+              "tb1Spread", "tb2Spread", "tb4Spread",
+              "bess2hOneCycleSpread", "bess2hTwoCycleSpread",
+          ]
+          valid_days = [
+              day
+              for country in payload["series"].values()
+              for year in country["years"].values()
+              for month in year["months"].values()
+              for day in month["days"]
+              if day.get("spreadIndexes", [None])[0] is not None
+          ]
+          if payload.get("spreadIndexOrder") != spread_order or not valid_days or len(valid_days[0]["spreadIndexes"]) != 5:
+              raise SystemExit("Missing TBx or BESS spread indicators")
           print(f"Latest available price date: {payload.get('latestLocalDate')}")
           print(f"Rows processed: {payload.get('generatedFromRows')}")
           print(f"Country-specific solar PV profiles: {len(actual_iso3)}")
+          print(f"Days with BESS index coverage: {len(valid_days)}")
           PY
 
       - name: Assemble static site

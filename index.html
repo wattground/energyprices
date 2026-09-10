@@ -12,6 +12,8 @@
       --muted: #667069;
       --line: #d9dfd7;
       --green: #1f8a70;
+      --blue: #397cc2;
+      --red: #c85555;
       --shadow: 0 12px 34px rgba(31, 44, 37, 0.1);
     }
 
@@ -50,7 +52,7 @@
 
     .nav {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
     }
 
@@ -74,6 +76,13 @@
       border-color: var(--green);
       outline: none;
     }
+
+    .price-card { border: 2px solid var(--blue); }
+    .negative-card { border: 2px solid var(--red); }
+    .bess-card { border: 2px solid var(--green); }
+    .price-card:hover, .price-card:focus-visible { border-color: var(--blue); }
+    .negative-card:hover, .negative-card:focus-visible { border-color: var(--red); }
+    .bess-card:hover, .bess-card:focus-visible { border-color: var(--green); }
 
     .disabled-card {
       opacity: 0.58;
@@ -104,13 +113,17 @@
     <p data-latest-date style="margin: 10px 0 0; color: #25322d; font-size: 14px; font-weight: 800;">Latest available date: loading...</p>
 
     <nav class="nav" aria-label="Dashboard sections">
-      <a href="spot_prices.html">
+      <a class="price-card" href="spot_prices.html">
         <strong>Price averages</strong>
         <span>Open spot price dashboards and average wholesale price views.</span>
       </a>
-      <a href="negative_prices.html">
+      <a class="negative-card" href="negative_prices.html">
         <strong>Negative prices</strong>
         <span>Open the negative price dashboards, rankings, heatmap, and cumulative views.</span>
+      </a>
+      <a class="bess-card" href="bess_indexes.html">
+        <strong>BESS Indexes</strong>
+        <span>Explore TBx benchmarks, chronological battery spreads, and country rankings.</span>
       </a>
     </nav>
     <footer style="margin-top: 28px; color: #667069; font-size: 13px;">Source: Ember, Entsoe</footer>

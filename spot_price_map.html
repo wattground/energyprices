@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Spot Price Map</title>
+  <title>European Price Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     :root {
@@ -112,6 +112,20 @@
       font-weight: 800;
       box-shadow: 0 6px 18px rgba(31, 44, 37, 0.08);
     }
+    .map-unit {
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      z-index: 500;
+      padding: 8px 10px;
+      border: 1px solid rgba(24, 32, 28, 0.12);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+      box-shadow: 0 6px 18px rgba(31, 44, 37, 0.08);
+    }
     .price-marker {
       min-width: 74px;
       transform: translate(-50%, -50%);
@@ -162,7 +176,7 @@
     <a class="back-link" href="spot_prices.html">&lt;-- Back to spot prices</a>
     <header>
       <div>
-        <h1>Map</h1>
+        <h1>European Price Map</h1>
         <p class="subtitle">European spot price labels based on the selected country highlight, year, month, and granularity.</p>
         <p data-latest-date style="margin: 10px 0 0; color: #25322d; font-size: 14px; font-weight: 800;">Latest available date: loading...</p>
       </div>
@@ -207,6 +221,7 @@
     <section class="map-wrap">
       <div id="map"></div>
       <div id="mapTitle" class="map-title">Loading data...</div>
+      <div class="map-unit">EUR/MWh</div>
     </section>
     <footer style="margin-top: 28px; color: #667069; font-size: 13px;">Source: Ember, Entsoe</footer>
   </main>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BESS Spread Simulation</title>
+  <link rel="stylesheet" href="data/bess_indexes.css">
+</head>
+<body>
+  <main>
+    <a class="back-link" href="bess_indexes.html">&lt;-- Back to BESS Indexes</a>
+    <header>
+      <div>
+        <h1>BESS Spread Simulation</h1>
+        <p class="subtitle">Optimal chronological gross margin for a 1 MW / 2 MWh battery. The battery starts and ends each day empty and may remain idle. Annual values equal the daily result or daily average multiplied by 365.</p>
+        <p class="latest-date" data-latest-date>Latest available date: loading...</p>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="Simulation filters">
+      <label>Country<select id="countrySelect"></select></label>
+      <label>Simulation<select id="metricSelect"></select></label>
+      <label>Year<select id="yearSelect"></select></label>
+      <label>Month<select id="monthSelect"></select></label>
+      <label>Granularity<select id="granularitySelect"><option value="day">Day</option><option value="month">Month</option><option value="year">Year</option></select></label>
+      <label>Unit<select id="unitSelect"><option value="day">EUR/MW/day</option><option value="year">EUR/MW/year</option></select></label>
+    </section>
+
+    <section class="methodology">
+      <div class="method-card"><strong>1 MW / 2 MWh</strong><span>Maximum charge and discharge power is 1 MW; usable energy capacity is 2 MWh.</span></div>
+      <div class="method-card"><strong>Chronological dispatch</strong><span>Hourly state of charge is respected. Energy must be charged before it can be sold.</span></div>
+      <div class="method-card"><strong>Gross opportunity</strong><span>100% efficiency, perfect foresight, no fees or degradation costs, and up to the selected equivalent cycles.</span></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div id="chartTitle">Loading data...</div>
+        <div class="panel-metrics"><strong id="periodAverage">Average: -</strong><div class="unit" id="unitLabel">EUR/MW/day</div></div>
+      </div>
+      <div class="chart-scroll"><svg id="chart" viewBox="0 0 1100 500" role="img" aria-labelledby="chartTitle"></svg></div>
+    </section>
+    <section class="panel table-wrap">
+      <table><thead><tr><th>Period</th><th id="valueHeader">Gross margin · EUR/MW/day</th><th id="coverageHeader">Coverage</th></tr></thead><tbody id="tableBody"></tbody></table>
+    </section>
+    <footer>Source: Ember, Entsoe</footer>
+  </main>
+
+  <script src="data/spot_prices.js"></script>
+  <script src="data/site_meta.js"></script>
+  <script>
+    window.SPREAD_DASHBOARD_CONFIG = { metrics: {
+      bess1: { label: "BESS 2h – up to 1 cycle", index: 3 },
+      bess2: { label: "BESS 2h – up to 2 cycles", index: 4 }
+    }};
+  </script>
+  <script src="data/spread_dashboard.js"></script>
+</body>
+</html>

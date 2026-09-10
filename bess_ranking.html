@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BESS Index Country Ranking</title>
+  <link rel="stylesheet" href="data/bess_indexes.css">
+</head>
+<body>
+  <main>
+    <a class="back-link" href="bess_indexes.html">&lt;-- Back to BESS Indexes</a>
+    <header>
+      <div>
+        <h1>Country Ranking</h1>
+        <p class="subtitle">Compare European markets using any of the three TBx benchmarks or two chronological BESS simulations. Annualized values are calculated as the selected daily value or daily average multiplied by 365.</p>
+        <p class="latest-date" data-latest-date>Latest available date: loading...</p>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="Ranking filters">
+      <label>Indicator<select id="metricSelect"></select></label>
+      <label>Period type<select id="granularitySelect"><option value="year">Year</option><option value="month">Month</option><option value="day">Day</option></select></label>
+      <label>Year<select id="yearSelect"></select></label>
+      <label>Month<select id="monthSelect"></select></label>
+      <label>Day<select id="daySelect"></select></label>
+      <label>Unit<select id="unitSelect"><option value="day">EUR/MW/day</option><option value="year">EUR/MW/year</option></select></label>
+    </section>
+
+    <section class="summary-grid">
+      <div class="summary-card"><span>Leading market</span><strong id="leaderValue">-</strong></div>
+      <div class="summary-card"><span id="medianLabel">Median EUR/MW/day</span><strong id="medianValue">-</strong></div>
+      <div class="summary-card"><span>Markets ranked</span><strong id="marketsValue">-</strong></div>
+    </section>
+
+    <section class="panel table-wrap">
+      <div class="panel-head"><div id="rankingTitle">Loading ranking...</div><div class="unit" id="unitLabel">EUR/MW/day</div></div>
+      <table>
+        <thead><tr><th class="rank">Rank</th><th>Country</th><th id="valueHeader">Value · EUR/MW/day</th><th>Coverage</th></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </section>
+    <footer>Source: Ember, Entsoe</footer>
+  </main>
+  <script src="data/spot_prices.js"></script>
+  <script src="data/site_meta.js"></script>
+  <script src="data/bess_ranking.js"></script>
+</body>
+</html>

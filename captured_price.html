@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Captured prices &amp; rates</title>
+  <title>Renewable Prices and Discounts</title>
   <style>
     :root {
       --bg: #f6f7f2;
@@ -156,6 +156,7 @@
     .tick { fill: var(--muted); font-size: 12px; }
     .axis-label { fill: var(--muted); font-size: 13px; font-weight: 800; }
     .bar { fill: var(--dark); opacity: 0.8; }
+    .rate-bar { fill: var(--green); opacity: 0.9; }
     .line {
       fill: none;
       stroke: var(--green);
@@ -165,6 +166,19 @@
     }
     .monthly-captured { fill: var(--dark); }
     .monthly-baseload { fill: #a9b1ab; }
+    .chart-tooltip {
+      position: fixed;
+      z-index: 20;
+      display: none;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: var(--ink);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      pointer-events: none;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
     .table-panel {
       margin-top: 14px;
       padding: 14px 16px;
@@ -204,7 +218,7 @@
     <a class="back-link" href="spot_prices.html">&lt;-- Back to spot prices</a>
     <header>
       <div>
-        <h1>Captured prices &amp; rates</h1>
+        <h1>Renewable Prices and Discounts</h1>
         <p class="subtitle">Country-specific solar PV profiles and synthetic wind profiles weighted against hourly wholesale prices.</p>
         <p data-latest-date style="margin: 10px 0 0; color: #25322d; font-size: 14px; font-weight: 800;">Latest available date: loading...</p>
       </div>
@@ -267,6 +281,9 @@
     const legend = document.querySelector("#legend");
     const tableHead = document.querySelector("#tableHead");
     const tableBody = document.querySelector("#tableBody");
+    const chartTooltip = document.createElement("div");
+    chartTooltip.className = "chart-tooltip";
+    document.body.append(chartTooltip);
     let spotData;
     let profileData;
 
@@ -284,6 +301,22 @@
       const [year, month] = key.split("-").map(Number);
       return new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
     };
+
+    function attachBarTooltip(bar, text) {
+      bar.append(el("title", {}, text));
+      bar.setAttribute("tabindex", "0");
+      bar.setAttribute("role", "img");
+      bar.setAttribute("aria-label", text);
+      const move = (event) => {
+        chartTooltip.textContent = text;
+        chartTooltip.style.display = "block";
+        chartTooltip.style.left = `${Math.min(event.clientX + 12, window.innerWidth - chartTooltip.offsetWidth - 8)}px`;
+        chartTooltip.style.top = `${Math.max(8, event.clientY - chartTooltip.offsetHeight - 12)}px`;
+      };
+      bar.addEventListener("pointerenter", move);
+      bar.addEventListener("pointermove", move);
+      bar.addEventListener("pointerleave", () => { chartTooltip.style.display = "none"; });
+    }
 
     function populateCountries() {
       countrySelect.innerHTML = "";
@@ -473,8 +506,11 @@
         const x = margin.left + index * slot + slot * 0.18;
         const capturedHeight = row.captured === null ? 0 : (row.captured / maxValue) * innerHeight;
         const baseloadHeight = row.baseload === null ? 0 : (row.baseload / maxValue) * innerHeight;
-        chart.append(el("rect", { class: "monthly-captured", x, y: baseY - capturedHeight, width: barWidth, height: capturedHeight, rx: 3 }));
-        chart.append(el("rect", { class: "monthly-baseload", x: x + barWidth + 4, y: baseY - baseloadHeight, width: barWidth, height: baseloadHeight, rx: 3 }));
+        const capturedBar = el("rect", { class: "monthly-captured", x, y: baseY - capturedHeight, width: barWidth, height: capturedHeight, rx: 3 });
+        const baseloadBar = el("rect", { class: "monthly-baseload", x: x + barWidth + 4, y: baseY - baseloadHeight, width: barWidth, height: baseloadHeight, rx: 3 });
+        attachBarTooltip(capturedBar, `${row.label}: Captured price ${fmtPrice(row.captured)} EUR/MWh`);
+        attachBarTooltip(baseloadBar, `${row.label}: Baseload price ${fmtPrice(row.baseload)} EUR/MWh`);
+        chart.append(capturedBar, baseloadBar);
         chart.append(el("text", { class: "tick", x: margin.left + index * slot + slot / 2, y: height - 28, "text-anchor": "middle" }, row.label));
       });
       chart.append(el("text", { class: "axis-label", x: margin.left, y: height - 12 }, "Month"));
@@ -510,7 +546,9 @@
         const x = margin.left + index * slot + (slot - barWidth) / 2;
         const value = row.captureRate === null ? 0 : row.captureRate * 100;
         const barHeight = (value / (maxValue * 100)) * innerHeight;
-        chart.append(el("rect", { class: "bar", x, y: baseY - barHeight, width: barWidth, height: barHeight, rx: 3 }));
+        const rateBar = el("rect", { class: "rate-bar", x, y: baseY - barHeight, width: barWidth, height: barHeight, rx: 3 });
+        attachBarTooltip(rateBar, `${row.label}: Captured rate ${fmtRate(row.captureRate)}`);
+        chart.append(rateBar);
         chart.append(el("text", { class: "tick", x: margin.left + index * slot + slot / 2, y: height - 28, "text-anchor": "middle" }, row.label));
       });
       chart.append(el("text", { class: "axis-label", x: margin.left, y: height - 12 }, "Month"));

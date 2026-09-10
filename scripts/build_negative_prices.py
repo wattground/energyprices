@@ -364,6 +364,80 @@ def best_two_cycle_spread(prices_by_hour):
     return best_two / 4.0
 
 
+SPREAD_AVERAGE_FIELDS = {
+    "tb1Spread": "averageTb1Spread",
+    "tb2Spread": "averageTb2Spread",
+    "tb4Spread": "averageTb4Spread",
+    "bess2hOneCycleSpread": "averageBess2hOneCycleSpread",
+    "bess2hTwoCycleSpread": "averageBess2hTwoCycleSpread",
+}
+SPREAD_INDEX_ORDER = tuple(SPREAD_AVERAGE_FIELDS)
+
+
+def top_bottom_spread(prices, duration):
+    """Cumulative top-minus-bottom spread for a 1 MW asset, in EUR/MW/day."""
+    if len(prices) not in (23, 24, 25) or len(prices) < duration * 2:
+        return None
+    ordered = sorted(prices)
+    return sum(ordered[-duration:]) - sum(ordered[:duration])
+
+
+def bess_2h_dispatch_spreads(prices):
+    """Optimal one- and two-cycle margins for a 1 MW / 2 MWh BESS.
+
+    The battery starts and ends empty, has 100% efficiency, can charge or discharge
+    at most 1 MW per market period, and may discharge at most 2 MWh per equivalent
+    cycle. Idling and partial cycles are allowed, so the result cannot be negative.
+    """
+    if len(prices) not in (23, 24, 25):
+        return None, None
+    capacity = 2
+    discharge_limit = capacity * 2
+    states = {(0, 0): 0.0}  # (state of charge, discharged throughput) -> margin
+    for price in prices:
+        next_states = {}
+        for (state_of_charge, discharged), margin in states.items():
+            actions = [(state_of_charge, discharged, margin)]
+            if state_of_charge < capacity:
+                actions.append((state_of_charge + 1, discharged, margin - price))
+            if state_of_charge > 0 and discharged < discharge_limit:
+                actions.append((state_of_charge - 1, discharged + 1, margin + price))
+            for next_soc, next_discharged, next_margin in actions:
+                key = (next_soc, next_discharged)
+                if key not in next_states or next_margin > next_states[key]:
+                    next_states[key] = next_margin
+        states = next_states
+    finished = [
+        (discharged, margin)
+        for (state_of_charge, discharged), margin in states.items()
+        if state_of_charge == 0
+    ]
+    one_cycle = max([0.0] + [margin for discharged, margin in finished if discharged <= capacity])
+    two_cycles = max([0.0] + [margin for _, margin in finished])
+    return one_cycle, two_cycles
+
+
+def bess_2h_dispatch_spread(prices, max_cycles):
+    if max_cycles not in (1, 2):
+        raise ValueError("max_cycles must be 1 or 2")
+    return bess_2h_dispatch_spreads(prices)[max_cycles - 1]
+
+
+def daily_spread_indexes(prices):
+    bess_one_cycle, bess_two_cycles = bess_2h_dispatch_spreads(prices)
+    return {
+        "tb1Spread": top_bottom_spread(prices, 1),
+        "tb2Spread": top_bottom_spread(prices, 2),
+        "tb4Spread": top_bottom_spread(prices, 4),
+        "bess2hOneCycleSpread": bess_one_cycle,
+        "bess2hTwoCycleSpread": bess_two_cycles,
+    }
+
+
+def mean_or_none(values):
+    return sum(values) / len(values) if values else None
+
+
 def captured_price(prices_by_hour, weights):
     weighted_total = 0.0
     weight_total = 0.0
@@ -390,6 +464,7 @@ def main():
     spot_day = defaultdict(lambda: {"sum": 0.0, "count": 0, "min": None, "max": None})
     spot_hour = defaultdict(lambda: {"sum": 0.0, "count": 0})
     spot_day_prices = defaultdict(lambda: [None] * 24)
+    spot_day_periods = defaultdict(list)
     hourly_rows_by_country = defaultdict(list)
     total_observations = 0
     total_negative = 0
@@ -403,6 +478,7 @@ def main():
             country = row["Country"].strip()
             iso3 = row["ISO3 Code"].strip()
             try:
+                utc_dt = parse_local_datetime(row["Datetime (UTC)"].strip())
                 local_dt = parse_local_datetime(row["Datetime (Local)"].strip())
                 price = float(row["Price (EUR/MWhe)"])
             except (KeyError, TypeError, ValueError):
@@ -437,6 +513,7 @@ def main():
             spot_hour[(country, month_key, local_dt.hour)]["sum"] += price
             spot_hour[(country, month_key, local_dt.hour)]["count"] += 1
             spot_day_prices[(country, month_key, day_key)][local_dt.hour] = price
+            spot_day_periods[(country, month_key, day_key)].append((utc_dt, price))
             if spot_day[(country, month_key, day_key)]["min"] is None or price < spot_day[(country, month_key, day_key)]["min"]:
                 spot_day[(country, month_key, day_key)]["min"] = price
             if spot_day[(country, month_key, day_key)]["max"] is None or price > spot_day[(country, month_key, day_key)]["max"]:
@@ -531,6 +608,7 @@ def main():
             year_bucket = spot_year[(country, year)]
             year_average = year_bucket["sum"] / year_bucket["count"] if year_bucket["count"] else None
             year_spreads = []
+            year_index_values = {field: [] for field in SPREAD_AVERAGE_FIELDS}
             spot_series[country]["years"][year] = {
                 "averagePrice": year_average,
                 "observations": year_bucket["count"],
@@ -543,6 +621,7 @@ def main():
                 month_average = month_bucket["sum"] / month_bucket["count"] if month_bucket["count"] else None
                 month_spreads = []
                 month_spreads_two_cycle = []
+                month_index_values = {field: [] for field in SPREAD_AVERAGE_FIELDS}
                 month_number = int(month_key[5:7])
                 next_month = datetime(int(year) + (1 if month_number == 12 else 0), 1 if month_number == 12 else month_number + 1, 1)
                 current_month = datetime(int(year), month_number, 1)
@@ -559,6 +638,13 @@ def main():
                 for day in range(1, days_in_month + 1):
                     day_bucket = spot_day[(country, month_key, str(day))]
                     day_prices = spot_day_prices[(country, month_key, str(day))]
+                    period_prices = [
+                        price
+                        for _, price in sorted(
+                            spot_day_periods[(country, month_key, str(day))],
+                            key=lambda item: item[0],
+                        )
+                    ]
                     average = day_bucket["sum"] / day_bucket["count"] if day_bucket["count"] else None
                     captured_prices = {
                         tech_key: captured_price(
@@ -577,6 +663,13 @@ def main():
                         else None
                     )
                     spread_two_cycle = best_two_cycle_spread(day_prices) if day_bucket["count"] else None
+                    index_values = daily_spread_indexes(period_prices) if day_bucket["count"] else {
+                        field: None for field in SPREAD_AVERAGE_FIELDS
+                    }
+                    for field, value in index_values.items():
+                        if value is not None:
+                            month_index_values[field].append(value)
+                            year_index_values[field].append(value)
                     if spread is not None:
                         month_spreads.append(spread)
                         year_spreads.append(spread)
@@ -590,19 +683,25 @@ def main():
                             "maxPrice": day_bucket["max"],
                             "dailySpread": spread,
                             "dailySpreadTwoCycle2h": spread_two_cycle,
+                            "spreadIndexes": [index_values[field] for field in SPREAD_INDEX_ORDER],
                             "observations": day_bucket["count"],
                             "capturedPrices": captured_prices,
                         }
                     )
 
-                spot_series[country]["years"][year]["months"][month_key] = {
+                month_result = {
                     "averagePrice": month_average,
                     "averageDailySpread": sum(month_spreads) / len(month_spreads) if month_spreads else None,
                     "averageDailySpreadTwoCycle2h": sum(month_spreads_two_cycle) / len(month_spreads_two_cycle) if month_spreads_two_cycle else None,
+                    "spreadDays": len(month_index_values["tb1Spread"]),
                     "observations": month_bucket["count"],
                     "hourlyAveragePrices": hourly_average_prices,
                     "days": days,
                 }
+                month_result["averageSpreadIndexes"] = [
+                    mean_or_none(month_index_values[field]) for field in SPREAD_INDEX_ORDER
+                ]
+                spot_series[country]["years"][year]["months"][month_key] = month_result
 
             spot_series[country]["years"][year]["averageDailySpread"] = (
                 sum(year_spreads) / len(year_spreads) if year_spreads else None
@@ -615,12 +714,17 @@ def main():
             spot_series[country]["years"][year]["averageDailySpreadTwoCycle2h"] = (
                 sum(year_two_cycle_values) / len(year_two_cycle_values) if year_two_cycle_values else None
             )
+            spot_series[country]["years"][year]["spreadDays"] = len(year_index_values["tb1Spread"])
+            spot_series[country]["years"][year]["averageSpreadIndexes"] = [
+                mean_or_none(year_index_values[field]) for field in SPREAD_INDEX_ORDER
+            ]
 
     spot_payload = {
         "source": str(INPUT_CSV.relative_to(ROOT)).replace("\\", "/"),
         "generatedFromRows": total_observations,
         "skippedRows": skipped_rows,
         "latestLocalDate": latest_local_date.isoformat() if latest_local_date else None,
+        "spreadIndexOrder": list(SPREAD_INDEX_ORDER),
         "countries": [
             {
                 "name": country,
