@@ -5,3 +5,11 @@ main{max-width:1440px;padding-top:26px}header{margin:30px 0 28px}h1{font-size:cl
 .nav-card>span.card-action:last-child{max-width:none;width:100%;font-size:13px;font-weight:700;color:var(--card-accent)}
 .legend i.range{height:9px;width:14px;border-radius:2px;background:rgba(184,191,194,.55)}
 .legend i.average{border-top-width:1px;opacity:.75}
+
+.chart-link{display:inline-flex;align-items:center;gap:8px;margin-top:10px;color:var(--green);font-size:12px;font-weight:750;text-decoration:none}.chart-link:hover{text-decoration:underline}.chart-link b{font-size:18px;line-height:1}
+
+.chart-link{padding:9px 13px;border:1px solid #b9cec3;border-radius:7px;background:#fff;box-shadow:0 2px 6px #17382a0b}.chart-link:hover{text-decoration:none;background:#f1f7f2;border-color:var(--green)}
+
+.chart-link{min-width:300px;padding:10px 16px;font-size:13px;justify-content:space-between}.chart-link b{font-size:20px}@media(max-width:580px){.chart-link{width:100%;min-width:0}}
+
+.chart-link{width:100%;min-width:0}

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Baseload & Solar Capture · Test</title>
+  <link rel="stylesheet" href="data/price_trend_grid.css">
+</head>
+<body><main>
+  <div class="topline"><span class="brand">MARKET MONITOR</span><a href="index.html">Back to home</a></div>
+  <header><div><span class="eyebrow">PRICE TREND</span><h1>Baseload & solar capture.</h1><p>Trailing 30-day averages across all available countries.</p></div><div class="controls"><label for="trendDate">Market date<input id="trendDate" type="date"></label><button id="latestTrend" type="button">Latest common day</button></div></header>
+  <section class="legend"><span><i class="base"></i>Baseload · 30-day average</span><span><i class="pv"></i>Captured PV · 30-day average</span><span><i class="point"></i>Selected-day price</span></section>
+  <p id="status" class="status">Loading country trends…</p><section id="grid" class="grid" aria-live="polite"></section>
+  <footer>Rolling arithmetic means use available daily observations; missing days are left null. Source: Ember, Entsoe.</footer>
+</main><script src="data/spot_prices.js"></script><script src="data/price_trend_grid.js"></script></body></html>

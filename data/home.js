@@ -83,7 +83,7 @@
     if(!rows?.length||rows.some(r=>!finite(r[1])))throw Error('No hourly curve available for the selected date. No other date has been substituted.');
     const values=rows.map(r=>r[1]),mean=values.reduce((a,b)=>a+b,0)/values.length,sorted=[...values].sort((a,b)=>a-b);
     const complete=[23,24,25].includes(rows.length);
-    const spread=n=>complete?sorted.slice(-n).reduce((a,b)=>a+b,0)-sorted.slice(0,n).reduce((a,b)=>a+b,0):null;
+    const spread=n=>complete?(sorted.slice(-n).reduce((a,b)=>a+b,0)-sorted.slice(0,n).reduce((a,b)=>a+b,0))/n:null;
     const history=Array.from({length:24},()=>({values:[],dailyMeans:[],days:0}));
     for(let offset=1;offset<=30;offset++){
       const previous=iso(time(date)-offset*DAY);

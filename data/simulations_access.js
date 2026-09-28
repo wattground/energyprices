@@ -22,7 +22,6 @@
     <input id="simulations-password" type="password" autocomplete="current-password" required aria-describedby="simulations-error">
     <p id="simulations-error" role="status" aria-live="polite"></p>
     <button type="submit">Enter simulations</button>
-    <a href="bess_indexes.html">← Back to BESS Indexes</a>
   </form>`;
   document.body.append(overlay);
   const input = overlay.querySelector('input'), error = overlay.querySelector('#simulations-error'), submit = overlay.querySelector('button');

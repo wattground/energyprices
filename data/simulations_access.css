@@ -20,3 +20,5 @@ html[data-simulations-locked] body > :not(#simulations-access):not(noscript) { d
 .simulations-login a { display: inline-block; margin-top: 20px; color: #146b57; font-size: 13px; }
 .simulations-lock { display: block; margin: 0 0 18px auto; padding: 9px 14px; border: 1px solid #d9dfd7; border-radius: 7px; background: white; color: #146b57; cursor: pointer; font: inherit; font-size: 12px; }
 .simulations-noscript { padding: 32px; font: 16px system-ui, sans-serif; }
+
+.simulations-switcher{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}.simulations-switcher a{display:inline-flex;align-items:center;padding:9px 13px;border:1px solid #c7d8ce;border-radius:7px;background:#fff;color:#146b57;font-size:12px;font-weight:750;text-decoration:none}.simulations-switcher a:hover{background:#edf7f0;border-color:#146b57}

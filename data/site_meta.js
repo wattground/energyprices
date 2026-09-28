@@ -1,4 +1,4 @@
-window.SITE_META = {"latestLocalDate": "2026-08-21"};
+window.SITE_META = {"latestLocalDate": "2026-09-29"};
 document.querySelectorAll('[data-latest-date]').forEach(function (element) {
   var value = window.SITE_META.latestLocalDate;
   if (!value) { element.textContent = 'Latest available date: -'; return; }

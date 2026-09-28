@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Day-Ahead Curves · Test</title>
+  <link rel="stylesheet" href="data/day_ahead_grid.css">
+</head>
+<body>
+  <main>
+    <div class="topline"><span class="brand">MARKET MONITOR</span><a href="index.html">Back to home</a></div>
+    <header>
+      <div><span class="eyebrow">DAY-AHEAD CURVES</span><h1>European hourly prices.</h1><p>All available countries on one comparable market day.</p></div>
+      <div class="controls"><label for="gridDate">Market date<input id="gridDate" type="date"></label><button id="latestCommon" type="button">Latest common day</button></div>
+    </header>
+    <section class="legend" aria-label="Chart legend"><span><i class="selected"></i>Selected day · €/MWh</span><span><i class="range"></i>Previous 30 days · min–max</span><span><i class="average"></i>Previous 30 days · hourly average</span></section>
+    <p id="status" class="status" role="status">Loading country curves…</p>
+    <section id="grid" class="grid" aria-live="polite"></section>
+    <footer>Market-local hours; repeated DST hours are displayed separately. Source: Ember, Entsoe.</footer>
+  </main>
+  <script src="data/spot_prices.js"></script>
+  <script src="data/day_ahead_grid.js"></script>
+</body>
+</html>

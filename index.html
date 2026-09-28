@@ -3,38 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>European Electricity Prices | Wattground</title>
+  <title>European Electricity Prices</title>
   <link rel="stylesheet" href="data/home.css">
 </head>
 <body>
   <main>
-    <div class="topline"><span class="brand">WATTGROUND / MARKET MONITOR</span></div>
+    <div class="topline"><span class="brand">MARKET MONITOR</span></div>
     <header><h1>European electricity.</h1><p>Day-Ahead prices, solar capture and battery opportunities across Europe.</p></header>
     <div class="navigation-heading"><h2>Explore the dashboards</h2><p>Select a section for the full analysis.</p></div>
     <nav class="nav" aria-label="Dashboard sections">
-      <a class="nav-card price-card" href="spot_prices.html"><span class="card-top">01 / WHOLESALE</span><strong>Price averages</strong><span class="card-description">Spot price dashboards and average wholesale price views.</span><span class="card-action">Open dashboard <b aria-hidden="true">→</b></span></a>
-      <a class="nav-card negative-card" href="negative_prices.html"><span class="card-top">02 / VOLATILITY</span><strong>Negative prices</strong><span class="card-description">Negative price rankings, heatmaps and cumulative views.</span><span class="card-action">Open dashboard <b aria-hidden="true">→</b></span></a>
+      <a class="nav-card price-card" href="spot_prices.html"><span class="card-top">01 / WHOLESALE</span><strong>Spot prices</strong><span class="card-description">Day-Ahead spot prices and country average views.</span><span class="card-action">Open dashboard <b aria-hidden="true">→</b></span></a>
+      <a class="nav-card negative-card" href="negative_prices.html"><span class="card-top">02 / NEGATIVE PRICES</span><strong>Negative prices</strong><span class="card-description">Negative price rankings, heatmaps and cumulative views.</span><span class="card-action">Open dashboard <b aria-hidden="true">→</b></span></a>
       <a class="nav-card bess-card" href="bess_indexes.html"><span class="card-top">03 / STORAGE</span><strong>BESS Indexes</strong><span class="card-description">TBx benchmarks, battery spreads and country rankings.</span><span class="card-action">Open dashboard <b aria-hidden="true">→</b></span></a>
     </nav>
     <section class="market" aria-label="Latest country market snapshot">
       <div class="results-preview-heading"><h2>Results preview</h2><p>A quick look at the selected market. Open a dashboard above to explore further.</p></div>
       <div class="market-head"><div class="market-country"><label class="eyebrow" for="countrySelect">LATEST PRICES</label><select id="countrySelect" aria-label="Country"></select><p id="latestDate" role="status">Loading daily data…</p></div><div class="date-controls"><label for="priceDate">Market date · year / month / day<input id="priceDate" type="date"></label><button id="latestDay" type="button">Latest day</button></div></div>
       <div class="charts">
-        <article class="chart-card"><div class="chart-heading"><div><span class="eyebrow">01 / PRICE TREND</span><h3>Baseload & solar capture</h3><p id="trendDates">Last 30 calendar days · €/MWh</p></div></div>
-          <div class="legend"><span><i class="base"></i>Baseload · 30-day average</span><span><i class="pv"></i>Captured PV · 30-day average</span></div>
-          <div id="trendChart" class="chart" aria-live="polite"></div>
-          <p id="trendCoverage" class="note error" role="status" hidden></p>
-          <p class="note">Lines: trailing 30-day arithmetic means, calculated on available days with at most 3 missing days (10%) per window. Nulls are excluded, never treated as zero. More than 3 missing days in the selected window hides the affected series (Missing data). Diamonds: actual daily mean prices on the selected day, not moving averages; PV means are generation-weighted.</p>
-        </article>
-        <article class="chart-card"><div class="chart-heading hourly-heading"><div><span class="eyebrow">02 / DAY AHEAD SHAPE</span><h3>Day-Ahead hourly curve</h3><p id="hourlyDate">Loading hourly data…</p></div><div class="metrics" aria-label="Daily price and spreads"><div><span>Average</span><strong id="hourlyAverage">—</strong><small>€/MWh</small></div><div><span>TBx 2</span><strong id="tb2">—</strong><small>€/MW/day</small></div><div><span>TBx 4</span><strong id="tb4">—</strong><small>€/MW/day</small></div></div></div>
+        <article class="chart-card"><div class="chart-heading hourly-heading"><div><h3>Day-Ahead hourly curve</h3><p id="hourlyDate">Loading hourly data…</p></div><div class="metrics" aria-label="Daily price and spreads"><div><span>Average</span><strong id="hourlyAverage">—</strong><small>€/MWh</small></div><div><span>TBx 2</span><strong id="tb2">—</strong><small>€/MWh</small></div><div><span>TBx 4</span><strong id="tb4">—</strong><small>€/MWh</small></div></div></div>
           <div class="legend"><span><i class="base"></i>Day-Ahead · €/MWh</span><span><i class="range"></i>Previous 30 days · min–max</span><span><i class="average"></i>Previous 30 days · hourly average</span></div>
           <div id="hourlyChart" class="chart" aria-live="polite"></div>
+          <a class="chart-link" href="day_ahead_grid_test.html">View all countries · Day-Ahead curves <b aria-hidden="true">→</b></a>
           <p id="hourlyCoverage" class="note"></p>
-          <p class="note">TBx 2 / 4 = sum of the highest 2 / 4 one-hour prices minus the lowest 2 / 4. Theoretical spreads, without chronological dispatch or efficiency constraints.</p>
-        </article>
-      </div>
-    </section>
-    <footer><span>Source: Ember, Entsoe</span><span>For private use. Results not verified. Created by Marco P.</span></footer>
+          <p class="note">TBx 2 / 4 = average spread between the highest 2 / 4 one-hour prices and the lowest 2 / 4. Reported in €/MWh; theoretical, without chronological dispatch or efficiency constraints.</p>
+        </article><article class="chart-card"><div class="chart-heading"><div><h3>Baseload & solar capture</h3><p id="trendDates">Last 30 calendar days · €/MWh</p></div></div>
+          <div class="legend"><span><i class="base"></i>Baseload · 30-day average</span><span><i class="pv"></i>Captured PV · 30-day average</span></div>
+          <div id="trendChart" class="chart" aria-live="polite"></div>
+          <a class="chart-link" href="price_trend_grid_test.html">View all countries · Baseload & solar capture <b aria-hidden="true">→</b></a>
+          <p id="trendCoverage" class="note error" role="status" hidden></p>
+          <p class="note">Lines: trailing 30-day arithmetic means, calculated on available days with at most 3 missing days (10%) per window. Nulls are excluded, never treated as zero. More than 3 missing days in the selected window hides the affected series (Missing data). Diamonds: actual daily mean prices on the selected day, not moving averages; PV means are generation-weighted.</p>
+        </article></div></section><footer><span>Source: Ember, Entsoe</span><span>For private use. Results not verified. Created by Marco P.</span></footer>
   </main>
   <script src="data/spot_prices.js"></script>
   <script src="data/home.js"></script>

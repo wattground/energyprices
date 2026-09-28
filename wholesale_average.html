@@ -138,9 +138,8 @@
       font-size: 12px;
     }
 
-    .bar {
-      fill: var(--dark);
-    }
+    .bar { fill: var(--green); opacity: .88; }
+    .bar.below-average { fill: #9aa9a1; }
 
     .bar.negative {
       fill: var(--red);
@@ -165,6 +164,17 @@
       stroke-width: 1.5;
       stroke-dasharray: 5 5;
     }
+    .average-line { stroke: var(--green); stroke-width: 1.5; stroke-dasharray: 6 5; opacity: .7; }
+    .average-label { fill: var(--green); font-size: 10px; font-weight: 800; }
+    .weekend-band { fill: #eef1ee; }
+
+    .section-kicker { display:block; margin-bottom:7px; color:var(--green); font-size:10px; font-weight:850; letter-spacing:.16em; }
+    .unit-badge { align-self:flex-start; padding:7px 10px; border:1px solid #cfe0d7; border-radius:999px; color:var(--green); background:#f1f7f3; font-size:12px; font-weight:800; }
+    .chart-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0 0 8px; }
+    .chart-kpi { padding:10px 12px; border:1px solid #e0e8e1; border-radius:9px; background:#f8faf7; }
+    .chart-kpi span { display:block; color:var(--muted); font-size:10px; font-weight:750; text-transform:uppercase; letter-spacing:.08em; }
+    .chart-kpi strong { display:block; margin-top:4px; color:var(--ink); font-size:20px; letter-spacing:-.03em; }
+    .chart-kpi small { color:var(--muted); font-size:10px; }
 
     .table-panel {
       max-height: 320px;
@@ -210,12 +220,18 @@
       }
       .chart-panel { padding: 12px; }
       svg { min-height: 360px; }
+      .chart-kpis { grid-template-columns:1fr; }
     }
-  </style>
+      .chart-legend { display:flex; gap:18px; align-items:center; margin:0 0 4px; color:var(--muted); font-size:11px; font-weight:700; }
+    .chart-legend span { display:inline-flex; align-items:center; gap:7px; }
+    .chart-legend i { display:inline-block; width:18px; height:10px; border-radius:3px; }
+    .weekend-swatch { background:#d8dfda; border:1px solid #bdc9c1; }
+    .average-swatch { width:22px !important; height:0 !important; border-top:2px dashed var(--green); border-radius:0 !important; }
+</style>
 </head>
 <body>
   <main>
-    <a class="back-link" href="spot_prices.html">&lt;-- Back to spot prices</a>
+    
     <header>
       <div>
         <h1>Baseload Prices</h1>
@@ -248,9 +264,11 @@
 
     <section class="chart-panel">
       <div class="chart-head">
-        <div id="chartTitle">Loading data...</div>
-        <div>EUR/MWh</div>
+        <div><span class="section-kicker">PRICE SERIES</span><div id="chartTitle">Loading data...</div></div>
+        <div class="unit-badge">€/MWh</div>
       </div>
+      <div class="chart-kpis" id="chartKpis"></div>
+      <div class="chart-legend" aria-label="Chart legend"><span><i class="weekend-swatch"></i>Weekend</span><span><i class="average-swatch"></i>Average</span></div>
       <svg id="chart" viewBox="0 0 1100 520" role="img" aria-labelledby="chartTitle"></svg>
     </section>
 
@@ -277,6 +295,7 @@
     const monthSelect = document.querySelector("#monthSelect");
     const granularitySelect = document.querySelector("#granularitySelect");
     const chartTitle = document.querySelector("#chartTitle");
+    const chartKpis = document.querySelector("#chartKpis");
     const chart = document.querySelector("#chart");
     const tableBody = document.querySelector("#tableBody");
     const chartTooltip = document.createElement("div");
@@ -400,6 +419,12 @@
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
       const values = rows.map((row) => row.value).filter((value) => value !== null);
+      const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+      const minimum = values.length ? Math.min(...values) : null;
+      const maximum = values.length ? Math.max(...values) : null;
+      chartKpis.innerHTML = [
+        ["Average", average], ["Minimum", minimum], ["Maximum", maximum],
+      ].map(([label, value]) => `<div class="chart-kpi"><span>${label}</span><strong>${formatPrice(value)}</strong><small>€/MWh</small></div>`).join("");
       const minValue = Math.min(0, ...values);
       const maxValue = Math.max(1, ...values);
       const range = maxValue - minValue || 1;
@@ -407,6 +432,22 @@
       const y = (value) => margin.top + ((maxValue - value) / range) * innerHeight;
       const xStep = innerWidth / Math.max(1, rows.length);
       const barWidth = Math.max(8, Math.min(36, xStep * 0.62));
+
+      if (granularitySelect.value === "day") {
+        const [selectedYear, selectedMonth] = monthSelect.value.split("-").map(Number);
+        rows.forEach((row, index) => {
+          const weekday = new Date(Date.UTC(selectedYear, selectedMonth - 1, Number(row.label))).getUTCDay();
+          if (weekday === 0 || weekday === 6) {
+            chart.append(el("rect", {
+              class: "weekend-band",
+              x: margin.left + xStep * index,
+              y: margin.top,
+              width: xStep,
+              height: innerHeight,
+            }));
+          }
+        });
+      }
 
       for (let i = 0; i <= 4; i += 1) {
         const gridY = margin.top + (innerHeight / 4) * i;
@@ -425,7 +466,7 @@
         const barY = Math.min(valueY, baseY);
         const barHeight = Math.max(1, Math.abs(baseY - valueY));
         const bar = el("rect", {
-          class: row.value < 0 ? "bar negative" : "bar",
+          class: `${row.value < 0 ? "bar negative" : "bar"}${average !== null && row.value < average ? " below-average" : ""}`,
           x: centerX - barWidth / 2,
           y: barY,
           width: barWidth,
@@ -445,6 +486,11 @@
           }, row.label));
         }
       });
+
+      if (average !== null) {
+        const averageY = y(average);
+        chart.append(el("line", { class: "average-line", x1: margin.left, y1: averageY, x2: width - margin.right, y2: averageY }));
+      }
 
       chart.append(el("text", { class: "axis-label", x: margin.left, y: height - 16 }, "Period"));
       chart.append(el("text", { class: "axis-label", x: 16, y: margin.top - 8 }, "EUR/MWh"));
@@ -506,3 +552,4 @@
   </script>
 </body>
 </html>
+
