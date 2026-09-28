@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PV + BESS Colocation</title>
+  <link rel="stylesheet" href="data/bess_indexes.css">
+  <link rel="stylesheet" href="data/colocation.css">
+</head>
+<body>
+  <main>
+    <a class="back-link" href="bess_indexes.html">&lt;-- Back to BESS Indexes</a>
+    <header>
+      <div>
+        <h1>PV + BESS Colocation</h1>
+        <p class="subtitle">Compare theoretical merchant revenues for a 1 MWp solar plant and a co-located PV + BESS project using historical day-ahead prices and country-specific solar profiles.</p>
+        <p class="latest-date" data-latest-date>Latest available date: loading...</p>
+      </div>
+    </header>
+
+    <section class="controls colocation-controls" aria-label="Colocation assumptions">
+      <label>Country<select id="countrySelect"></select></label>
+      <label>Period<select id="periodSelect"><option value="month">Month</option><option value="year">Year</option></select></label>
+      <label>Year<select id="yearSelect"></select></label>
+      <label>Month<select id="monthSelect"></select></label>
+      <label>PV yield<input id="yieldInput" type="number" min="100" max="3000" step="50" value="1200"><span class="input-unit">MWh/MWp/year</span></label>
+      <label>Grid / PV<input id="gridRatioInput" type="number" min="0.1" max="3" step="0.05" value="1"><span class="input-unit">MW/MWp</span></label>
+      <label>BESS / PV<input id="bessRatioInput" type="number" min="0" max="3" step="0.05" value="0.5"><span class="input-unit">MW/MWp</span></label>
+      <label>BESS duration<select id="durationSelect"><option value="1">1 hour</option><option value="2" selected>2 hours</option><option value="4">4 hours</option></select></label>
+      <label>Round-trip efficiency<input id="efficiencyInput" type="number" min="50" max="100" step="1" value="90"><span class="input-unit">%</span></label>
+      <label>Charging source<select id="sourceSelect"><option value="pv">PV only</option><option value="grid">PV + grid</option></select></label>
+      <button class="primary-button" id="runButton" type="button">Run revenue benchmark</button>
+    </section>
+
+    <section class="methodology">
+      <div class="method-card"><strong>Day-ahead only</strong><span>Historical hourly prices with perfect foresight. The battery starts and ends each day empty.</span></div>
+      <div class="method-card"><strong>Revenue benchmark</strong><span>No CAPEX, fixed costs, degradation cost or cycle limit. The merchant may curtail at non-positive prices; physical limits still apply.</span></div>
+      <div class="method-card"><strong>1 MWp PV</strong><span>The country profile defines the hourly and seasonal shape; the selected specific yield scales annual production.</span></div>
+    </section>
+
+    <section class="summary-grid colocation-summary">
+      <div class="summary-card"><span>PV merchant revenue</span><strong id="pvRevenue">-</strong></div>
+      <div class="summary-card accent-card"><span>PV + BESS revenue</span><strong id="hybridRevenue">-</strong></div>
+      <div class="summary-card"><span>Revenue uplift</span><strong id="revenueUplift">-</strong></div>
+      <div class="summary-card"><span>PV curtailment recovered</span><strong id="curtailmentRecovered">-</strong></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div id="dispatchTitle">Run the benchmark to view the average daily operation</div>
+        <div class="unit">MWh per average day</div>
+      </div>
+      <div class="dispatch-legend">
+        <span><i class="legend-swatch pv-swatch"></i>PV generation</span>
+        <span><i class="legend-swatch charge-swatch"></i>BESS charge</span>
+        <span><i class="legend-swatch discharge-swatch"></i>BESS discharge</span>
+        <span><i class="legend-swatch export-swatch"></i>Grid export</span>
+      </div>
+      <div class="chart-scroll"><svg id="dispatchChart" viewBox="0 0 1100 470" role="img" aria-labelledby="dispatchTitle"></svg></div>
+    </section>
+
+    <section class="panel table-wrap">
+      <div class="panel-head"><div>Revenue and energy comparison</div><div class="unit" id="coverageLabel">-</div></div>
+      <table class="comparison-table">
+        <thead><tr><th>Metric</th><th>PV merchant</th><th>PV + BESS</th><th>Difference</th></tr></thead>
+        <tbody id="comparisonBody"></tbody>
+      </table>
+    </section>
+
+    <section class="panel sizing-panel">
+      <div class="sizing-head">
+        <div>
+          <h2>Revenue-only optimal sizing</h2>
+          <p>Tests grid ratios from 0.25x to 1.50x and BESS power ratios from 0x to 1.50x for the selected period. Duration, efficiency and charging source use the assumptions above.</p>
+        </div>
+        <button class="secondary-button" id="optimizeButton" type="button">Find optimal sizing</button>
+      </div>
+      <div class="summary-grid sizing-summary">
+        <div class="summary-card"><span>Maximum-revenue sizing</span><strong id="optimalSizing">-</strong><small id="optimalRevenue">-</small></div>
+        <div class="summary-card"><span>Smallest sizing at 99% of maximum</span><strong id="efficientSizing">-</strong><small id="efficientRevenue">-</small></div>
+        <div class="summary-card"><span>Configurations tested</span><strong id="configurationsTested">-</strong><small>No investment costs included</small></div>
+      </div>
+      <div class="heatmap-wrap" id="heatmapWrap"><p class="empty-state">Run optimal sizing to compare the revenue surface.</p></div>
+    </section>
+
+    <p class="assumption-note">This is a theoretical benchmark, not a bankable forecast. PV profiles are representative monthly shapes and the dispatch assumes perfect knowledge of day-ahead prices.</p>
+    <footer>Source: Ember, Entsoe</footer>
+  </main>
+
+  <script src="data/generation_profiles.js"></script>
+  <script src="data/site_meta.js"></script>
+  <script src="data/colocation.js"></script>
+</body>
+</html>

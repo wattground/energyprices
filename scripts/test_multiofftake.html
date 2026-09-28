@@ -1,0 +1,50 @@
+<!doctype html><meta charset="utf-8"><title>Multi-offtake regression tests</title>
+<pre id="log">Running…</pre><iframe id="ui" src="../multiofftake.html" style="width:1400px;height:1000px"></iframe>
+<script src="../data/multiofftake_core.js"></script>
+<script>
+const C = MultiOfftake, log = document.getElementById('log'), messages = []; let failures = 0;
+function assert(ok, message) { if (!ok) throw Error(message); }
+function close(a,b) { assert(Math.abs(a-b)<1e-7, `${a} != ${b}`); }
+function test(name, fn) { try { fn(); messages.push('PASS '+name); } catch(e) { failures++; messages.push('FAIL '+name+': '+e.message); } }
+const base = { date:0, values:[1], format:'iso', decimal:'.', unit:'mw-year', cadence:'week', sourceMW:1, days:7, lastEnd:'' };
+const data = [{date:'2025-01-01',merchant:100},{date:'2025-01-02',merchant:200}];
+const tb = new Map([['2025-01-01',150],['2025-01-02',250]]);
+const component = (type,share,extra={}) => ({id:1,name:type,type,share,price:120,unit:'day',frequency:'month',upside:50,multiplier:1,...extra});
+test('CSV quotes, semicolon, decimal comma',()=>{const p=C.csv('Date;Value;Note\r\n2025-01-01;"1.234,50";"A;B"');close(C.number(p.rows[0][1],','),1234.5);assert(p.rows[0][2]==='A;B','quoted delimiter');});
+test('Annualized weekly rates and negative components',()=>{const p=C.csv('Date,A,B\n2025-12-01,36500,-3650');const d=C.merchant(p,{...base,values:[1,2]});close(d.length,7);close(d.reduce((s,r)=>s+r.merchant,0),630);});
+test('Leap-year denominator across calendar boundary',()=>{const d=C.merchant(C.csv('Date,Revenue\n2024-12-30,36600'),base);close(d[0].merchant,100);close(d[2].merchant,36600/365);});
+test('Period total conversion and source MW',()=>{const d=C.merchant(C.csv('Date,Revenue\n2025-01-01,1400'),{...base,unit:'total-period',sourceMW:2});close(d[0].merchant,100);});
+test('Final inclusive coverage and gaps preserved',()=>{const d=C.merchant(C.csv('Date,Revenue\n2025-01-01,36500\n2025-01-15,36500'),{...base,lastEnd:'2025-01-16'});close(d.length,9);assert(d.at(-1).date==='2025-01-16','last day');});
+test('Duplicate and overlapping periods rejected',()=>{let failed=false;try{C.merchant(C.csv('Date,Revenue\n2025-01-01,1\n2025-01-02,1'),base);}catch(e){failed=true;}assert(failed,'overlap accepted');});
+test('Invalid dates and numeric blanks rejected',()=>{for(const fn of [()=>C.date('2025-02-30'),()=>C.number('')]){let failed=false;try{fn();}catch(e){failed=true;}assert(failed,'invalid input accepted');}});
+test('Merchant baseline identity',()=>{const r=C.calculate(data,[component('merchant',100)],tb);close(r.rows[1].scenario,200);});
+test('Residual merchant on empty and partial allocations',()=>{close(C.calculate(data,[],tb).rows[0].scenario,100);close(C.calculate(data,[component('toll',40)],tb).rows[0].scenario,108);});
+test('40 toll + 30 swap + 30 merchant exact reconciliation',()=>{const r=C.calculate(data,[component('toll',40),component('swap',30),component('merchant',30)],tb);close(r.rows[0].scenario,99);close(r.rows[1].scenario,129);close(r.rows[0].swap,-9);});
+test('Full toll replaces all physical merchant',()=>{const r=C.calculate(data,[component('toll',100)],tb);close(r.rows[0].physical,0);close(r.rows[0].scenario,120);});
+test('Floor top-up and surrendered upside',()=>{let r=C.calculate(data,[component('floor',100,{price:200})],tb);close(r.rows.reduce((s,r)=>s+r.scenario,0),400);r=C.calculate(data,[component('floor',100,{price:100})],tb);close(r.rows.reduce((s,r)=>s+r.scenario,0),250);close(r.rows.reduce((s,r)=>s+r.floor,0),-50);});
+test('Monthly versus annual floor settlement',()=>{const d=[{date:'2025-01-31',merchant:0},{date:'2025-02-01',merchant:400}];const month=C.calculate(d,[component('floor',100,{price:100,upside:100,frequency:'month'})],new Map());const year=C.calculate(d,[component('floor',100,{price:100,upside:100,frequency:'year'})],new Map());close(month.rows.reduce((s,r)=>s+r.scenario,0),500);close(year.rows.reduce((s,r)=>s+r.scenario,0),400);});
+test('Missing TB4 blocks only active variable swaps',()=>{let failed=false;try{C.calculate(data,[component('swap',30)],new Map());}catch(e){failed=true;}assert(failed,'missing TB accepted');C.calculate(data,[component('merchant',100)],new Map());C.calculate(data,[component('swap',0)],new Map());close(C.calculate(data,[component('swap',100,{multiplier:0})],new Map()).rows[0].scenario,220);});
+test('Over-allocation rejected',()=>{let failed=false;try{C.calculate(data,[component('toll',70),component('swap',40)],tb);}catch(e){failed=true;}assert(failed,'over-allocation accepted');});
+test('TB4 volume factor and negative settlements',()=>{const r=C.calculate(data,[component('swap',100,{multiplier:2})],tb,{tbFactor:4});close(r.rows[0].swap,120-150*8);});
+test('Complete-year detection includes leap day',()=>{const d=C.merchant(C.csv('Date,Revenue\n2024-01-01,36600'),{...base,cadence:'year'});const r=C.calculate(d,[component('merchant',100)],new Map());const a=C.aggregate(r.rows,'year')[0];close(a.days,366);close(a.expected,366);close(a.scenario,36600);});
+document.getElementById('ui').addEventListener('load',async()=>{
+ const w=document.getElementById('ui').contentWindow,d=w.document;
+ try {
+  const dt=new DataTransfer();dt.items.add(new File(['Date,FCR,Intraday Continuous,Day-Ahead Energy\n2025-12-01,36500,-3650,36500\n2025-12-08,40000,-5000,30000'], 'synthetic-modo.csv',{type:'text/csv'}));
+  d.getElementById('merchantFile').files=dt.files;d.getElementById('merchantFile').dispatchEvent(new Event('change'));
+  await new Promise(resolve=>{if(d.getElementById('applyMerchant'))return resolve();const observer=new MutationObserver(()=>{if(d.getElementById('applyMerchant')){observer.disconnect();resolve();}});observer.observe(d.getElementById('merchantMapping'),{childList:true,subtree:true});});
+  d.getElementById('applyMerchant').click();
+  test('UI import produces merchant results',()=>{assert(!d.getElementById('resultBody').hidden,d.getElementById('status').textContent);assert(d.querySelectorAll('#dailyTable tr').length===14,'daily ledger');});
+  const example=d.getElementById('example');example.value='mixed';example.dispatchEvent(new Event('change'));
+  test('UI mixed example renders three components and charts',()=>{assert(d.querySelectorAll('.component').length===3,'components');assert(d.querySelectorAll('#revenueChart svg circle').length>0,'chart absent');assert(!d.getElementById('export').disabled,'export disabled');});
+  const shares=d.querySelectorAll('[data-key=share]');shares[0].value='90';shares[0].dispatchEvent(new Event('input',{bubbles:true}));
+  test('UI invalid allocation hides stale results and disables export',()=>{assert(d.getElementById('resultBody').hidden,'stale result');assert(d.getElementById('export').disabled,'export enabled');});
+  example.value='mixed';example.dispatchEvent(new Event('change'));
+  const originalCreate=w.URL.createObjectURL,originalClick=w.HTMLAnchorElement.prototype.click;let exported;
+  w.URL.createObjectURL=blob=>{exported=blob;return 'blob:test';};w.HTMLAnchorElement.prototype.click=function(){};
+  d.getElementById('export').click();const exportText=await exported.text();w.URL.createObjectURL=originalCreate;w.HTMLAnchorElement.prototype.click=originalClick;
+  test('CSV export reconciles physical and contractual contributions',()=>{const p=C.csv(exportText);assert(p.rows.length===14,'export day count');const row=p.rows[0],at=k=>+row[p.headers.indexOf(k)];close(at('physical_merchant_eur_mw')+at('toll_eur_mw')+at('floor_adjustment_eur_mw')+at('swap_net_eur_mw'),at('scenario_eur_mw'));close(at('scenario_total_eur'),at('scenario_eur_mw')*100);assert(p.headers.some(h=>h.includes('settlement_period')),'settlement absent');});
+ }catch(e){failures++;messages.push('FAIL UI harness: '+e.message);}
+ log.textContent=messages.join('\n')+'\nRESULT: '+(failures?'FAIL '+failures:'PASS '+messages.length);document.title=failures?'FAIL':'PASS';
+});
+</script>

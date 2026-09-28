@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Multi-Offtake | BESS Indexes</title>
+  <link rel="stylesheet" href="data/bess_indexes.css"><link rel="stylesheet" href="data/multiofftake.css">
+</head>
+<body>
+<main class="multi-main">
+  <a class="back-link" href="bess_indexes.html">← BESS Indexes</a>
+  <header><div><div class="eyebrow">BESS CONTRACT LAB · GERMANY</div><h1>Multi-Offtake</h1><p class="subtitle">Build a contract mix. Compare historical owner revenue with a fully merchant baseline.</p></div><span class="local-badge">● Local CSV processing</span></header>
+  <details class="data-panel" open id="dataPanel"><summary>01 / Historical data <span id="dataSummary">Import your merchant index to begin</span></summary>
+    <div class="data-grid">
+      <section><h2>Merchant revenue</h2><p class="hint">Import the Modo export or another historical series. Files stay in this browser. The supplied Modo export uses weekly observations in €/MW/year; these are annualized rates, not weekly cash amounts.</p>
+        <label class="file-label">Merchant CSV<input id="merchantFile" type="file" accept=".csv,.tsv,text/csv"></label>
+        <div id="merchantMapping" hidden></div>
+      </section>
+      <section><h2>Day-Ahead reference</h2><label>TB4 source<select id="tbSource"><option value="site">Site database · Germany TB4</option><option value="csv">Import a separate daily CSV</option></select></label>
+        <p id="siteCoverage" class="hint">Loading site database…</p>
+        <div id="tbUpload" hidden><label class="file-label">Daily TB4 CSV<input id="tbFile" type="file" accept=".csv,.tsv,text/csv"></label><div id="tbMapping" hidden></div></div>
+        <p class="hint">Site TB4 = sum of the four highest hourly prices − sum of the four lowest, with one hour per price. A theoretical €/MW/day index; no efficiency losses or chronological dispatch constraints. Source: Ember / ENTSO-E via this site's database.</p>
+        <div id="dataAudit" class="audit">No merchant dataset applied.</div>
+      </section>
+    </div>
+    <div id="importMessage" role="status"></div>
+  </details>
+  <div class="workbench">
+    <aside class="editor"><div class="section-head"><h2>02 / Scenario builder</h2><span class="pill">Editable</span></div>
+      <div class="fields"><label>Asset power · MW<input id="assetMW" type="number" value="100" min="0.001" step="any"></label><label>Asset duration · hours<input id="duration" type="number" value="4" min="0.01" step="any"></label></div>
+      <p class="hint">Duration describes the asset; it does not rescale imported merchant revenue or choose the swap index.</p>
+      <label>Example scenario<select id="example"><option value="merchant">100% merchant · starting point</option><option value="mixed">40% toll + 30% swap + 30% merchant</option><option value="floor">50% floor + 50% merchant</option><option value="toll">Full toll · 100% fixed</option></select></label>
+      <p class="hint">Examples are illustrative, not market quotes. Selecting one replaces the current components.</p>
+      <div id="allocation"></div><div id="components"></div>
+      <button id="addComponent" class="secondary" type="button">+ Add component</button>
+      <p class="hint">Unallocated capacity stays merchant. Each card is a distinct physical tranche. A TB4 swap overlays only its own optimized merchant tranche; toll and floor cannot also be applied to that same tranche.</p>
+    </aside>
+    <section class="results"><div class="section-head"><h2>03 / Historical comparison</h2><button id="export" class="secondary" disabled>Export calculation CSV</button></div>
+      <div class="result-controls"><label>From<input id="from" type="date"></label><label>Through<input id="through" type="date"></label><label>Charts<select id="granularity"><option value="month">Monthly</option><option value="year">Annual</option></select></label><label>Chart units<select id="displayUnit"><option value="mw">€/MW</option><option value="total">Total €</option></select></label></div>
+      <div id="status" class="notice" role="status">Import and apply a merchant CSV to calculate historical revenue. Start with the Modo index supplied for this project.</div>
+      <div id="resultBody" hidden>
+        <div id="kpis" class="kpis"></div>
+        <div class="chart-card"><div class="section-head"><h3 id="periodTitle">Period revenue</h3><div class="legend"><span class="merchant-dot">Fully merchant</span><span class="scenario-dot">Scenario</span></div></div><div id="revenueChart"></div></div>
+        <div class="chart-pair"><div class="chart-card"><h3>Cumulative revenue</h3><div id="cumulativeChart"></div></div><div class="chart-card"><h3 id="distributionTitle">Distribution of monthly revenue</h3><div id="distributionChart"></div></div></div>
+        <div class="chart-card"><h3>Revenue composition & contract formulas</h3><div id="breakdown"></div><div id="formulas"></div></div>
+        <div class="chart-card"><h3>Annual revenue · actual covered days</h3><div class="scroll"><table><thead><tr><th>Year / coverage</th><th>Merchant €/MW</th><th>Scenario €/MW</th><th>Scenario total €</th><th>Δ €/MW</th><th>Δ total €</th><th>Δ %</th></tr></thead><tbody id="annualTable"></tbody></table></div></div>
+        <details class="chart-card"><summary>Daily calculation ledger <span id="ledgerCount"></span></summary><p class="hint">First 100 days shown. Export includes every day and each component's inputs, settlement period and contribution, in €/MW and total €.</p><div class="scroll"><table><thead><tr><th>Date</th><th>Merchant €/MW</th><th>TB4 reference*</th><th>Physical €/MW</th><th>Toll €/MW</th><th>Floor adjustment €/MW</th><th>Swap €/MW</th><th>Scenario €/MW</th></tr></thead><tbody id="dailyTable"></tbody></table></div><p class="hint" id="tbLedgerUnit"></p></details>
+      </div>
+    </section>
+  </div>
+  <details class="methodology-notes" open><summary>Calculation conventions & limitations</summary><div class="notes-grid">
+    <p><strong>One daily accrual timeline.</strong> Source dates identify period starts. Annualized rates use actual calendar days / 365 or 366; period amounts are spread uniformly over covered days. Weekly index values therefore imply constant daily revenue within each week. The final observation's inclusive end date is editable. Gaps are excluded and reported; they are never filled with zero.</p>
+    <p><strong>Contract settlement.</strong> Annual and monthly prices accrue using actual days in their calendar year or month. Floors settle on calendar months or years: F + α × max(M − F, 0). F is the prorated guarantee for observed days; M is merchant revenue on that tranche. The signed floor adjustment is allocated uniformly over those observed days. Monthly floor charts with annual settlement therefore reflect the entire selected annual bucket. Swap accruals sum to the selected daily, monthly or annual settlement; payment delays are not modeled.</p>
+    <p><strong>Incomplete history.</strong> Partial settlement buckets use prorated fixed payments and floors, explicitly assuming settlement on observed days only. Changing the date window recalculates floors. Annual risk indicators use only fully covered calendar years; variability requires at least two. Missing TB4 blocks active variable swaps. Negative swap settlements and negative merchant components are retained. Percentage changes use Δ / |merchant|, and are undefined when merchant is zero.</p>
+    <p><strong>Historical revenue comparison.</strong> Proportional allocation of historical merchant revenue is an analytical assumption. Actual dispatch under multiple contracts, FCA restrictions, cycling limits and shared SoC could produce different outcomes. An index is not evidence of realized owner cash receipts. No forecast, bankability assessment, DSCR, debt capacity or equity IRR is calculated. Fees, taxes, degradation and counterparty default are not added unless already reflected in the imported series.</p>
+  </div></details>
+  <footer>Merchant: user-imported dataset · Day-Ahead: site database or user CSV · No commercial data uploads</footer>
+</main>
+<script src="data/spot_prices.js"></script><script src="data/multiofftake_core.js"></script><script src="data/multiofftake.js"></script>
+</body></html>

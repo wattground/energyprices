@@ -17,6 +17,7 @@ PROFILE_OUTPUT_JS = ROOT / "data" / "generation_profiles.js"
 IMPACT_OUTPUT_JSON = ROOT / "data" / "renewable_negative_impact.json"
 IMPACT_OUTPUT_JS = ROOT / "data" / "renewable_negative_impact.js"
 SITE_META_OUTPUT_JS = ROOT / "data" / "site_meta.js"
+COLOCATION_OUTPUT_DIR = ROOT / "data" / "colocation_prices"
 PV_PROFILE_SOURCE = ROOT / "data" / "pv_profiles_source.json"
 
 
@@ -382,39 +383,66 @@ def top_bottom_spread(prices, duration):
     return sum(ordered[-duration:]) - sum(ordered[:duration])
 
 
-def bess_2h_dispatch_spreads(prices):
-    """Optimal one- and two-cycle margins for a 1 MW / 2 MWh BESS.
+def bess_2h_dispatch_plans(prices):
+    """Optimal one- and two-cycle margins and hourly actions for a 1 MW / 2 MWh BESS.
 
     The battery starts and ends empty, has 100% efficiency, can charge or discharge
     at most 1 MW per market period, and may discharge at most 2 MWh per equivalent
     cycle. Idling and partial cycles are allowed, so the result cannot be negative.
     """
     if len(prices) not in (23, 24, 25):
-        return None, None
+        return (None, ()), (None, ())
     capacity = 2
     discharge_limit = capacity * 2
-    states = {(0, 0): 0.0}  # (state of charge, discharged throughput) -> margin
+    # Action values are -1 charge, 0 idle, +1 discharge. The path is packed into
+    # two bits per period to avoid copying millions of Python tuples in a full build.
+    action_codes = {0: 1, -1: 0, 1: 2}
+    states = {(0, 0): (0.0, 0)}  # (state of charge, discharged throughput) -> (margin, packed path)
     for price in prices:
         next_states = {}
-        for (state_of_charge, discharged), margin in states.items():
-            actions = [(state_of_charge, discharged, margin)]
+        for (state_of_charge, discharged), (margin, packed_path) in states.items():
+            actions = [(state_of_charge, discharged, margin, 0)]
             if state_of_charge < capacity:
-                actions.append((state_of_charge + 1, discharged, margin - price))
+                actions.append((state_of_charge + 1, discharged, margin - price, -1))
             if state_of_charge > 0 and discharged < discharge_limit:
-                actions.append((state_of_charge - 1, discharged + 1, margin + price))
-            for next_soc, next_discharged, next_margin in actions:
+                actions.append((state_of_charge - 1, discharged + 1, margin + price, 1))
+            for next_soc, next_discharged, next_margin, action in actions:
                 key = (next_soc, next_discharged)
-                if key not in next_states or next_margin > next_states[key]:
-                    next_states[key] = next_margin
+                if key not in next_states or next_margin > next_states[key][0]:
+                    next_states[key] = (next_margin, (packed_path << 2) | action_codes[action])
         states = next_states
     finished = [
-        (discharged, margin)
-        for (state_of_charge, discharged), margin in states.items()
+        (discharged, margin, packed_path)
+        for (state_of_charge, discharged), (margin, packed_path) in states.items()
         if state_of_charge == 0
     ]
-    one_cycle = max([0.0] + [margin for discharged, margin in finished if discharged <= capacity])
-    two_cycles = max([0.0] + [margin for _, margin in finished])
+    idle_plan = (0, 0.0, None)
+    one_cycle_result = max(
+        [idle_plan] + [item for item in finished if item[0] <= capacity],
+        key=lambda item: (item[1], -item[0]),
+    )
+    two_cycle_result = max(
+        [idle_plan] + finished,
+        key=lambda item: (item[1], -item[0]),
+    )
+    def unpack_actions(packed_path):
+        if packed_path is None:
+            return (0,) * len(prices)
+        decoded = []
+        actions_by_code = {0: -1, 1: 0, 2: 1}
+        for _ in prices:
+            decoded.append(actions_by_code[packed_path & 3])
+            packed_path >>= 2
+        return tuple(reversed(decoded))
+
+    one_cycle = (one_cycle_result[1], unpack_actions(one_cycle_result[2]))
+    two_cycles = (two_cycle_result[1], unpack_actions(two_cycle_result[2]))
     return one_cycle, two_cycles
+
+
+def bess_2h_dispatch_spreads(prices):
+    one_cycle, two_cycles = bess_2h_dispatch_plans(prices)
+    return one_cycle[0], two_cycles[0]
 
 
 def bess_2h_dispatch_spread(prices, max_cycles):
@@ -432,6 +460,18 @@ def daily_spread_indexes(prices):
         "bess2hOneCycleSpread": bess_one_cycle,
         "bess2hTwoCycleSpread": bess_two_cycles,
     }
+
+
+def daily_spread_results(prices):
+    one_cycle, two_cycles = bess_2h_dispatch_plans(prices)
+    indexes = {
+        "tb1Spread": top_bottom_spread(prices, 1),
+        "tb2Spread": top_bottom_spread(prices, 2),
+        "tb4Spread": top_bottom_spread(prices, 4),
+        "bess2hOneCycleSpread": one_cycle[0],
+        "bess2hTwoCycleSpread": two_cycles[0],
+    }
+    return indexes, (one_cycle, two_cycles)
 
 
 def mean_or_none(values):
@@ -513,7 +553,7 @@ def main():
             spot_hour[(country, month_key, local_dt.hour)]["sum"] += price
             spot_hour[(country, month_key, local_dt.hour)]["count"] += 1
             spot_day_prices[(country, month_key, day_key)][local_dt.hour] = price
-            spot_day_periods[(country, month_key, day_key)].append((utc_dt, price))
+            spot_day_periods[(country, month_key, day_key)].append((utc_dt, local_dt.hour, price))
             if spot_day[(country, month_key, day_key)]["min"] is None or price < spot_day[(country, month_key, day_key)]["min"]:
                 spot_day[(country, month_key, day_key)]["min"] = price
             if spot_day[(country, month_key, day_key)]["max"] is None or price > spot_day[(country, month_key, day_key)]["max"]:
@@ -622,6 +662,10 @@ def main():
                 month_spreads = []
                 month_spreads_two_cycle = []
                 month_index_values = {field: [] for field in SPREAD_AVERAGE_FIELDS}
+                month_dispatch_counts = [
+                    {"charge": [0] * 24, "discharge": [0] * 24},
+                    {"charge": [0] * 24, "discharge": [0] * 24},
+                ]
                 month_number = int(month_key[5:7])
                 next_month = datetime(int(year) + (1 if month_number == 12 else 0), 1 if month_number == 12 else month_number + 1, 1)
                 current_month = datetime(int(year), month_number, 1)
@@ -638,13 +682,11 @@ def main():
                 for day in range(1, days_in_month + 1):
                     day_bucket = spot_day[(country, month_key, str(day))]
                     day_prices = spot_day_prices[(country, month_key, str(day))]
-                    period_prices = [
-                        price
-                        for _, price in sorted(
-                            spot_day_periods[(country, month_key, str(day))],
-                            key=lambda item: item[0],
-                        )
-                    ]
+                    period_rows = sorted(
+                        spot_day_periods[(country, month_key, str(day))],
+                        key=lambda item: item[0],
+                    )
+                    period_prices = [price for _, _, price in period_rows]
                     average = day_bucket["sum"] / day_bucket["count"] if day_bucket["count"] else None
                     captured_prices = {
                         tech_key: captured_price(
@@ -663,9 +705,17 @@ def main():
                         else None
                     )
                     spread_two_cycle = best_two_cycle_spread(day_prices) if day_bucket["count"] else None
-                    index_values = daily_spread_indexes(period_prices) if day_bucket["count"] else {
-                        field: None for field in SPREAD_AVERAGE_FIELDS
-                    }
+                    if day_bucket["count"]:
+                        index_values, dispatch_plans = daily_spread_results(period_prices)
+                    else:
+                        index_values = {field: None for field in SPREAD_AVERAGE_FIELDS}
+                        dispatch_plans = ((None, ()), (None, ()))
+                    for plan_index, (_, actions) in enumerate(dispatch_plans):
+                        for (_, local_hour, _), action in zip(period_rows, actions):
+                            if action == -1:
+                                month_dispatch_counts[plan_index]["charge"][local_hour] += 1
+                            elif action == 1:
+                                month_dispatch_counts[plan_index]["discharge"][local_hour] += 1
                     for field, value in index_values.items():
                         if value is not None:
                             month_index_values[field].append(value)
@@ -701,6 +751,14 @@ def main():
                 month_result["averageSpreadIndexes"] = [
                     mean_or_none(month_index_values[field]) for field in SPREAD_INDEX_ORDER
                 ]
+                month_result["bessDispatchProfiles"] = []
+                for counts in month_dispatch_counts:
+                    charge_total = sum(counts["charge"])
+                    discharge_total = sum(counts["discharge"])
+                    month_result["bessDispatchProfiles"].append([
+                        [round(value / charge_total * 100, 4) if charge_total else 0 for value in counts["charge"]],
+                        [round(value / discharge_total * 100, 4) if discharge_total else 0 for value in counts["discharge"]],
+                    ])
                 spot_series[country]["years"][year]["months"][month_key] = month_result
 
             spot_series[country]["years"][year]["averageDailySpread"] = (
@@ -725,6 +783,10 @@ def main():
         "skippedRows": skipped_rows,
         "latestLocalDate": latest_local_date.isoformat() if latest_local_date else None,
         "spreadIndexOrder": list(SPREAD_INDEX_ORDER),
+        "bessDispatchProfileMethodology": (
+            "For each country, month, and BESS scenario, charge and discharge arrays show each local hour's "
+            "percentage share of total monthly charged or discharged energy selected by the optimal daily dispatch."
+        ),
         "countries": [
             {
                 "name": country,
@@ -735,6 +797,29 @@ def main():
         ],
         "series": spot_series,
     }
+    colocation_payloads = {}
+    for country, iso3 in countries.items():
+        country_payload = {"country": country, "iso3": iso3, "years": {}}
+        for month_key in sorted(months_by_country[country]):
+            year = month_key[:4]
+            month_days = []
+            for day in range(1, 32):
+                period_rows = sorted(
+                    spot_day_periods[(country, month_key, str(day))],
+                    key=lambda item: item[0],
+                )
+                if len(period_rows) not in (23, 24, 25) or any(
+                    not math.isfinite(price) for _, _, price in period_rows
+                ):
+                    continue
+                month_days.append([
+                    day,
+                    [[local_hour, round(price, 5)] for _, local_hour, price in period_rows],
+                ])
+            if month_days:
+                year_payload = country_payload["years"].setdefault(year, {"months": {}})
+                year_payload["months"][month_key] = month_days
+        colocation_payloads[iso3] = country_payload
     impact_payload = build_impact_payload(
         countries,
         months_by_country,
@@ -791,6 +876,14 @@ def main():
             "});\n"
         )
 
+    COLOCATION_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    for iso3, country_payload in colocation_payloads.items():
+        output_path = COLOCATION_OUTPUT_DIR / f"{iso3}.js"
+        with output_path.open("w", encoding="utf-8") as handle:
+            handle.write("window.COLOCATION_PRICE_DATA = ")
+            json.dump(country_payload, handle, ensure_ascii=False, separators=(",", ":"))
+            handle.write(";\n")
+
     print(f"Wrote {OUTPUT_JSON}")
     print(f"Wrote {OUTPUT_JS}")
     print(f"Wrote {SPOT_OUTPUT_JSON}")
@@ -800,6 +893,7 @@ def main():
     print(f"Wrote {IMPACT_OUTPUT_JSON}")
     print(f"Wrote {IMPACT_OUTPUT_JS}")
     print(f"Wrote {SITE_META_OUTPUT_JS}")
+    print(f"Wrote {len(colocation_payloads)} country files to {COLOCATION_OUTPUT_DIR}")
     print(f"Rows processed: {total_observations:,}")
     print(f"Rows skipped: {skipped_rows:,}")
     print(f"Negative prices: {total_negative:,}")

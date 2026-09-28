@@ -14,6 +14,8 @@ on:
       - "data/bess_indexes.css"
       - "data/spread_dashboard.js"
       - "data/bess_ranking.js"
+      - "data/colocation.js"
+      - "data/colocation.css"
       - "data/pv_profiles_source.json"
       - ".github/workflows/update-and-deploy.yml"
 
@@ -72,6 +74,10 @@ jobs:
                   f"missing={sorted(expected_iso3 - actual_iso3)}, "
                   f"extra={sorted(actual_iso3 - expected_iso3)}"
               )
+          colocation_dir = Path("data") / "colocation_prices"
+          missing_colocation = [iso3 for iso3 in expected_iso3 if not (colocation_dir / f"{iso3}.js").is_file()]
+          if missing_colocation:
+              raise SystemExit(f"Missing colocation price files: {sorted(missing_colocation)}")
           spread_order = [
               "tb1Spread", "tb2Spread", "tb4Spread",
               "bess2hOneCycleSpread", "bess2hTwoCycleSpread",
@@ -86,11 +92,33 @@ jobs:
           ]
           if payload.get("spreadIndexOrder") != spread_order or not valid_days or len(valid_days[0]["spreadIndexes"]) != 5:
               raise SystemExit("Missing TBx or BESS spread indicators")
+          dispatch_profiles = [
+              month.get("bessDispatchProfiles")
+              for country in payload["series"].values()
+              for year in country["years"].values()
+              for month in year["months"].values()
+          ]
+          for profile in dispatch_profiles:
+              if (
+                  not isinstance(profile, list) or len(profile) != 2
+                  or any(not isinstance(plan, list) or len(plan) != 2 for plan in profile)
+                  or any(len(series) != 24 for plan in profile for series in plan)
+              ):
+                  raise SystemExit("Missing or malformed monthly BESS dispatch profile")
+              for plan in profile:
+                  for series in plan:
+                      total = sum(series)
+                      if total and abs(total - 100) > 0.01:
+                          raise SystemExit(f"BESS dispatch profile does not sum to 100%: {total}")
           print(f"Latest available price date: {payload.get('latestLocalDate')}")
           print(f"Rows processed: {payload.get('generatedFromRows')}")
           print(f"Country-specific solar PV profiles: {len(actual_iso3)}")
           print(f"Days with BESS index coverage: {len(valid_days)}")
+          print(f"Monthly BESS dispatch profiles: {len(dispatch_profiles)}")
           PY
+
+      - name: Verify colocation price files
+        run: python scripts/validate_colocation_data.py
 
       - name: Assemble static site
         run: |

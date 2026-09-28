@@ -42,6 +42,29 @@
     <section class="panel table-wrap">
       <table><thead><tr><th>Period</th><th id="valueHeader">Gross margin · EUR/MW/day</th><th id="coverageHeader">Coverage</th></tr></thead><tbody id="tableBody"></tbody></table>
     </section>
+    <details class="dispatch-panel" id="dispatchDetails">
+      <summary>
+        <span>24-hour battery operation profile</span>
+        <small><span class="open-label">Open chart</span><span class="close-label">Close chart</span></small>
+      </summary>
+      <div class="dispatch-content">
+        <div class="dispatch-head">
+          <div>
+            <strong id="dispatchTitle">Monthly charge and discharge distribution</strong>
+            <p>Each series shows how 100% of the energy charged or discharged during the selected month is distributed across local hours.</p>
+          </div>
+          <div class="dispatch-controls" aria-label="Battery operation profile filters">
+            <label>Year<select id="dispatchYearSelect"></select></label>
+            <label>Month<select id="dispatchMonthSelect"></select></label>
+          </div>
+        </div>
+        <div class="dispatch-legend" aria-label="Chart legend">
+          <span><i class="legend-swatch charge-swatch"></i>Charge</span>
+          <span><i class="legend-swatch discharge-swatch"></i>Discharge</span>
+        </div>
+        <div class="chart-scroll"><svg id="dispatchChart" viewBox="0 0 1100 440" role="img" aria-labelledby="dispatchTitle"></svg></div>
+      </div>
+    </details>
     <footer>Source: Ember, Entsoe</footer>
   </main>
 
