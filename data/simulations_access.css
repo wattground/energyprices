@@ -1,0 +1,22 @@
+/* Convenience gate only: public static files are not confidential. */
+html[data-simulations-locked] body > :not(#simulations-access):not(noscript) { display: none !important; }
+#simulations-access {
+  position: fixed; inset: 0; z-index: 10000; overflow: auto;
+  display: grid; place-items: center; padding: 24px;
+  background: #f4f6f1; color: #18201c;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+#simulations-access[hidden] { display: none; }
+.simulations-login { width: min(100%, 420px); padding: 32px; background: #fff; border: 1px solid #d9dfd7; border-radius: 14px; box-shadow: 0 14px 38px #1f2c2517; }
+.simulations-login .eyebrow { font-size: 11px; letter-spacing: .14em; font-weight: 800; color: #146b57; }
+.simulations-login h1 { font-size: 30px; line-height: 1.15; margin: 16px 0; }
+.simulations-login p { color: #68726b; font-size: 14px; line-height: 1.6; }
+.simulations-login label { display: block; margin: 22px 0 8px; font-size: 12px; font-weight: 700; }
+.simulations-login input { box-sizing: border-box; width: 100%; min-height: 46px; border: 1px solid #a9bcb0; border-radius: 7px; padding: 10px 12px; font: inherit; }
+.simulations-login button { width: 100%; min-height: 44px; border: 0; border-radius: 7px; background: #146b57; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+.simulations-login button:disabled { opacity: .6; }
+.simulations-login input:focus-visible, .simulations-login button:focus-visible { outline: 2px solid #1f8a70; outline-offset: 3px; }
+.simulations-login #simulations-error { min-height: 22px; color: #a23d25; font-size: 12px; }
+.simulations-login a { display: inline-block; margin-top: 20px; color: #146b57; font-size: 13px; }
+.simulations-lock { display: block; margin: 0 0 18px auto; padding: 9px 14px; border: 1px solid #d9dfd7; border-radius: 7px; background: white; color: #146b57; cursor: pointer; font: inherit; font-size: 12px; }
+.simulations-noscript { padding: 32px; font: 16px system-ui, sans-serif; }

@@ -1,4 +1,4 @@
-name: Update prices and deploy Pages
+name: Update prices and deploy Pages + Vercel
 
 on:
   workflow_dispatch:
@@ -10,12 +10,18 @@ on:
       - main
     paths:
       - "*.html"
+      - "vercel.json"
       - "scripts/**"
       - "data/bess_indexes.css"
       - "data/spread_dashboard.js"
       - "data/bess_ranking.js"
       - "data/colocation.js"
       - "data/colocation.css"
+      - "data/simulations_access.js"
+      - "data/simulations_access.css"
+      - "data/multiofftake.js"
+      - "data/multiofftake_core.js"
+      - "data/multiofftake.css"
       - "data/pv_profiles_source.json"
       - ".github/workflows/update-and-deploy.yml"
 
@@ -127,8 +133,13 @@ jobs:
           cp -R data _site/data
           touch _site/.nojekyll
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+      - name: Upload generated site for Vercel
+        uses: actions/upload-artifact@v4
+        with:
+          name: vercel-site
+          path: _site/
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
@@ -142,6 +153,69 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-vercel:
+    name: Deploy generated site to Vercel
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Check required Vercel secrets
+        shell: bash
+        run: |
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing repository Actions secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull production project settings
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Download generated site
+        uses: actions/download-artifact@v4
+        with:
+          name: vercel-site
+          path: .vercel/output/static
+
+      - name: Prepare static Vercel Build Output
+        shell: bash
+        run: |
+          test -s .vercel/output/static/index.html
+          test -s .vercel/output/static/data/spot_prices.js
+          test -s .vercel/output/static/data/colocation_prices/DEU.js
+          node -e 'require("node:fs").writeFileSync(".vercel/output/config.json", JSON.stringify({version: 3}))'
+
+      - name: Deploy to Vercel production
+        shell: bash
+        run: |
+          vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" > deployment-url.txt
+          deployment_url="$(tail -n 1 deployment-url.txt)"
+          if [[ ! "$deployment_url" =~ ^https://[a-zA-Z0-9.-]+\.vercel\.app$ ]]; then
+            echo "::error::Vercel did not return the expected deployment URL."
+            exit 1
+          fi
+          echo "### Vercel production deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "$deployment_url" >> "$GITHUB_STEP_SUMMARY"
+          echo "Published the generated site from this workflow run (commit $GITHUB_SHA)." >> "$GITHUB_STEP_SUMMARY"

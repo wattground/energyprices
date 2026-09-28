@@ -3,3 +3,7 @@ prices/all_countries.csv.bak
 data/negative_prices.json
 data/spot_prices.json
 data/generation_profiles.json
+.vercel/
+_site/
+.env
+.env.*

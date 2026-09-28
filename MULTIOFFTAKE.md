@@ -1,10 +1,16 @@
 # Multi-Offtake historical revenue comparison
 
 Open `multiofftake.html` directly in a browser, or select **Multi-Offtake** from
-**BESS Indexes**. Import a merchant CSV, inspect its columns and units, then apply
+**BESS Indexes → BESS simulations**. Import a merchant CSV, inspect its columns and units, then apply
 the mapping. Germany TB4 is read from the same local `data/spot_prices.js` dataset
 as the TBx dashboard; a separate daily TB4 CSV can override it. No CSV is uploaded
 or stored on a server. The commercial Modo export is not bundled in the repo.
+
+The simulations hub and both simulation pages share a browser password gate.
+Unlocking lasts for the tab session; **Lock simulations** clears it. This is a
+convenience gate on a public static site, not server authentication: HTML, scripts
+and data remain public and the check can be bypassed. Confidential hosted content
+requires authenticated hosting and private source access.
 
 The supplied Modo export uses weekly observations in EUR/MW/year, confirmed by the
 user. Defaults are seven-day periods starting on each observation date; the last
