@@ -13,6 +13,8 @@ on:
       - "vercel.json"
       - "scripts/**"
       - "data/bess_indexes.css"
+      - "data/home.css"
+      - "data/home.js"
       - "data/spread_dashboard.js"
       - "data/bess_ranking.js"
       - "data/colocation.js"
@@ -190,14 +192,17 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: Pull production project settings
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-
       - name: Download generated site
         uses: actions/download-artifact@v4
         with:
           name: vercel-site
           path: .vercel/output/static
+
+      - name: Link deployment to the configured Vercel project
+        shell: bash
+        run: |
+          mkdir -p .vercel
+          node -e 'const fs=require("node:fs"); fs.writeFileSync(".vercel/project.json", JSON.stringify({projectId: process.env.VERCEL_PROJECT_ID, orgId: process.env.VERCEL_ORG_ID}));'
 
       - name: Prepare static Vercel Build Output
         shell: bash
