@@ -5,8 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>European Electricity Prices</title>
   <link rel="stylesheet" href="data/home.css">
+  <style>
+    body.site-locked>main{visibility:hidden;height:100vh;overflow:hidden}
+    .password-gate{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#f5f6f1;color:#182b25;padding:24px}
+    .password-card{width:min(100%,360px);padding:30px;border:1px solid #dce2d9;border-radius:14px;background:#fff;box-shadow:0 14px 40px #17382a18;text-align:center}
+    .password-card .brand{display:block;margin-bottom:18px;color:#20856d;font-size:10px;font-weight:800;letter-spacing:.16em}
+    .password-card h1{font-size:26px;margin:0 0 8px;letter-spacing:-.03em}
+    .password-card p{margin:0 0 20px;color:#6c7871;font-size:13px}
+    .password-card form{display:grid;gap:10px}
+    .password-card input{width:100%;padding:11px 12px;border:1px solid #cad5cc;border-radius:7px;font:18px system-ui;text-align:center;letter-spacing:.2em}
+    .password-card button{padding:11px 12px;border:1px solid #20856d;border-radius:7px;background:#20856d;color:#fff;font:700 13px system-ui;cursor:pointer}
+    .password-error{min-height:18px;margin:2px 0 0!important;color:#c85555!important;font-size:11px!important}
+    .password-gate[hidden]{display:none}
+  </style>
 </head>
-<body>
+<body class="site-locked">
+  <div id="passwordGate" class="password-gate">
+    <div class="password-card">
+      <span class="brand">MARKET MONITOR</span>
+      <h1>Private access</h1>
+      <p>Enter the password to continue.</p>
+      <form id="passwordForm">
+        <input id="sitePassword" type="password" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="Password" autofocus>
+        <button type="submit">Enter</button>
+        <p id="passwordError" class="password-error" role="alert"></p>
+      </form>
+    </div>
+  </div>
   <main>
     <div class="topline"><span class="brand">MARKET MONITOR</span></div>
     <header><h1>European electricity.</h1><p>Day-Ahead prices, solar capture and battery opportunities across Europe.</p></header>
@@ -34,6 +59,22 @@
           <p class="note">Lines: trailing 30-day arithmetic means, calculated on available days with at most 3 missing days (10%) per window. Nulls are excluded, never treated as zero. More than 3 missing days in the selected window hides the affected series (Missing data). Diamonds: actual daily mean prices on the selected day, not moving averages; PV means are generation-weighted.</p>
         </article></div></section><footer><span>Source: Ember, Entsoe</span><span>For private use. Results not verified. Created by Marco P.</span></footer>
   </main>
+  <script>
+    (() => {
+      const gate = document.getElementById('passwordGate');
+      const form = document.getElementById('passwordForm');
+      const input = document.getElementById('sitePassword');
+      const error = document.getElementById('passwordError');
+      const main = document.querySelector('body>main');
+      const unlock = () => { gate.hidden = true; document.body.classList.remove('site-locked'); main.removeAttribute('aria-hidden'); };
+      if (sessionStorage.getItem('marketAccess') === 'granted') unlock();
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        if (input.value === '2510') { sessionStorage.setItem('marketAccess', 'granted'); unlock(); }
+        else { error.textContent = 'Incorrect password.'; input.select(); }
+      });
+    })();
+  </script>
   <script src="data/spot_prices.js"></script>
   <script src="data/home.js"></script>
 </body>
