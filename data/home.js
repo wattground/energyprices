@@ -114,13 +114,19 @@
     const unavailable=points.filter(p=>!p.range).length;
     $('hourlyCoverage').textContent=`${rows.length} hourly observations. Grey range and dashed hourly average: ${dateLabel(iso(time(date)-days*DAY),true)} – ${dateLabel(iso(time(date)-DAY),true)}, excluding the selected day. ${unavailable?`Missing data: range and average omitted for ${unavailable} displayed hour(s) with fewer than ${threshold} available days. `:''}${complete?'Market-local hours; repeated DST hours enter the min–max separately and are averaged within each day before calculating the historical hourly mean.':'Incomplete selected day: daily average uses available hours; TBx values are withheld.'}`;
   }
+  function hourlyAvailableDates(source) {
+    const dates=new Set();
+    for(const [year,yearData] of Object.entries(source.years||{})) for(const [month,monthData] of Object.entries(yearData.months||{})) for(const [day,rows] of monthData) if(rows?.some(row=>finite(row?.[1]))) dates.add(`${month}-${String(day).padStart(2,'0')}`);
+    return dates;
+  }
   async function update(resetDate = false) {
     const request=++revision,country=$('countrySelect').value,c=data.countries.find(c=>c.name===country);
-    const rows=dailyRows(country),latest=rows.filter(r=>finite(r.base)).at(-1);
+    const rows=dailyRows(country);let latest=rows.filter(r=>finite(r.base)).at(-1),hourly=null;
     for(const id of ['hourlyAverage','tb1','tb2','tb4']){const el=$(id);if(el)el.textContent='—';}
     $('hourlyCoverage').textContent='';$('hourlyDate').textContent='Loading hourly data…';
     $('hourlyChart').innerHTML='<div class="empty">Loading hourly prices…</div>';
     if(!latest){$('latestDate').textContent='No daily prices available.';$('trendChart').innerHTML='<div class="empty">No daily data</div>';$('hourlyChart').innerHTML='<div class="empty">No hourly date to display</div>';return;}
+    if(window.ALIGN_LATEST_TO_HOURLY){try{hourly=await hourlyData(c.iso3);if(request!==revision)return;const common=hourlyAvailableDates(hourly);latest=rows.filter(r=>finite(r.base)&&common.has(r.date)).at(-1)||latest;}catch(e){hourly=null;}}
     const input=$('priceDate');input.min=rows.find(r=>finite(r.base)).date;input.max=latest.date;
     if(resetDate)input.value=window.FIXED_MARKET_DATE || latest.date;
     const selected=rows.find(r=>r.date===input.value&&finite(r.base));
@@ -133,7 +139,7 @@
       return;
     }
     $('latestDate').textContent=`${dateLabel(selected.date,true)} · ${weekdayLabel(selected.date)}${selected.date===latest.date?' · latest available day':' · selected day'}`;drawTrend(rows,selected);
-    try { const hourly=await hourlyData(c.iso3);if(request!==revision)return;drawHourly(hourly,selected.date); }
+    try { hourly=hourly||await hourlyData(c.iso3);if(request!==revision)return;drawHourly(hourly,selected.date); }
     catch(e){if(request!==revision)return;$('hourlyDate').textContent=dateLabel(selected.date,true);$('hourlyChart').innerHTML=`<div class="empty error">${escape(e.message)}</div>`;}
   }
   if(!data?.countries?.length){$('latestDate').textContent='Site price dataset could not be loaded.';return;}
