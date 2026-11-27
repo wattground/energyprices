@@ -83,6 +83,18 @@
       padding: 0 12px;
     }
     select:disabled { opacity: 0.48; }
+    .checkbox-control { align-content: start; }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: none;
+    }
+    .checkbox-row input { width: 18px; height: 18px; accent-color: var(--green); }
     .stats {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -212,6 +224,7 @@
       .controls { grid-template-columns: 1fr; }
     }
   </style>
+  <script src="data/dashboard_nav.js" defer></script>
 </head>
 <body>
   <main>
@@ -228,6 +241,14 @@
           <select id="countrySelect"></select>
         </label>
         <label>
+          Granularity
+          <select id="granularitySelect">
+            <option value="day">Daily</option>
+            <option value="month" selected>Monthly</option>
+            <option value="year">Yearly</option>
+          </select>
+        </label>
+        <label>
           Year
           <select id="yearSelect"></select>
         </label>
@@ -239,11 +260,18 @@
           Technology
           <select id="technologySelect"></select>
         </label>
+        <label class="checkbox-control">
+          <span>Baseload</span>
+          <span class="checkbox-row">
+            <input id="showBaseload" type="checkbox" />
+            Show baseload
+          </span>
+        </label>
         <label>
           View
           <select id="viewSelect">
             <option value="hourly">Hourly profile</option>
-            <option value="monthly">Monthly trend</option>
+            <option value="monthly" selected>Monthly trend</option>
             <option value="monthly_rate">Monthly captured rate</option>
           </select>
         </label>
@@ -275,6 +303,8 @@
     const yearSelect = document.querySelector("#yearSelect");
     const monthSelect = document.querySelector("#monthSelect");
     const technologySelect = document.querySelector("#technologySelect");
+    const granularitySelect = document.querySelector("#granularitySelect");
+    const showBaseload = document.querySelector("#showBaseload");
     const viewSelect = document.querySelector("#viewSelect");
     const chartTitle = document.querySelector("#chartTitle");
     const chart = document.querySelector("#chart");
@@ -409,6 +439,47 @@
       });
     }
 
+    function dailyRows() {
+      const monthKey = monthSelect.value;
+      const monthData = selectedMonthData();
+      return (monthData.days || []).map((day) => {
+        const captured = day.capturedPrices?.[technologySelect.value] ?? null;
+        const baseload = day.averagePrice;
+        return {
+          monthKey,
+          label: String(day.day).padStart(2, "0"),
+          captured,
+          baseload,
+          captureRate: baseload ? captured / baseload : null,
+        };
+      });
+    }
+
+    function yearlyRows() {
+      const years = countryYears(countrySelect.value).slice().sort();
+      return years.map((year) => {
+        const months = spotData.series[countrySelect.value].years[year].months;
+        const values = Object.entries(months).map(([monthKey, monthData]) => ({
+          captured: capturedForMonth(monthData, profileFor(monthKey)),
+          baseload: monthData.averagePrice,
+        })).filter((row) => row.captured !== null && row.baseload !== null);
+        const captured = values.length ? values.reduce((sum, row) => sum + row.captured, 0) / values.length : null;
+        const baseload = values.length ? values.reduce((sum, row) => sum + row.baseload, 0) / values.length : null;
+        return {
+          label: year,
+          captured,
+          baseload,
+          captureRate: baseload ? captured / baseload : null,
+        };
+      });
+    }
+
+    function trendRows() {
+      if (granularitySelect.value === "day") return dailyRows();
+      if (granularitySelect.value === "year") return yearlyRows();
+      return monthlyRows();
+    }
+
     function hourlyRows() {
       const monthData = selectedMonthData();
       const weights = profileFor(monthSelect.value);
@@ -484,12 +555,22 @@
       `).join("");
     }
 
+    function trendMeta() {
+      const value = granularitySelect.value;
+      return {
+        value,
+        label: value === "day" ? "daily" : value === "year" ? "yearly" : "monthly",
+        heading: value === "day" ? "Day" : value === "year" ? "Year" : "Month",
+      };
+    }
+
     function drawMonthly() {
-      const rows = monthlyRows();
-      const valid = rows.filter((row) => row.captured !== null && row.baseload !== null);
-      const selected = rows.find((row) => row.monthKey === monthSelect.value) || valid[valid.length - 1];
-      chartTitle.textContent = `${countrySelect.value}: monthly captured price, ${yearSelect.value}`;
-      legend.innerHTML = `<span><i class="swatch" style="background: var(--dark)"></i>Captured price</span><span><i class="swatch" style="background: #a9b1ab"></i>Baseload average</span>`;
+      const rows = trendRows();
+      const meta = trendMeta();
+      const baseloadVisible = showBaseload.checked;
+      const context = meta.value === "day" ? `, ${monthLabel(monthSelect.value)}` : meta.value === "month" ? `, ${yearSelect.value}` : "";
+      chartTitle.textContent = `${countrySelect.value}: ${meta.label} captured price${context}`;
+      legend.innerHTML = `<span><i class="swatch" style="background: var(--dark)"></i>Captured price</span>${baseloadVisible ? `<span><i class="swatch" style="background: #a9b1ab"></i>Baseload average</span>` : ""}`;
       chart.innerHTML = "";
 
       const width = 1100;
@@ -500,35 +581,41 @@
       const maxValue = Math.max(1, ...rows.flatMap((row) => [row.captured || 0, row.baseload || 0]));
       const baseY = drawAxes(width, height, margin, maxValue, "EUR/MWh");
       const slot = innerWidth / Math.max(1, rows.length);
-      const barWidth = slot * 0.32;
+      const barWidth = slot * (baseloadVisible ? 0.32 : 0.54);
 
       rows.forEach((row, index) => {
-        const x = margin.left + index * slot + slot * 0.18;
+        const x = margin.left + index * slot + (baseloadVisible ? slot * 0.18 : (slot - barWidth) / 2);
         const capturedHeight = row.captured === null ? 0 : (row.captured / maxValue) * innerHeight;
-        const baseloadHeight = row.baseload === null ? 0 : (row.baseload / maxValue) * innerHeight;
+        const baseloadHeight = baseloadVisible && row.baseload !== null ? (row.baseload / maxValue) * innerHeight : 0;
         const capturedBar = el("rect", { class: "monthly-captured", x, y: baseY - capturedHeight, width: barWidth, height: capturedHeight, rx: 3 });
         const baseloadBar = el("rect", { class: "monthly-baseload", x: x + barWidth + 4, y: baseY - baseloadHeight, width: barWidth, height: baseloadHeight, rx: 3 });
         attachBarTooltip(capturedBar, `${row.label}: Captured price ${fmtPrice(row.captured)} EUR/MWh`);
-        attachBarTooltip(baseloadBar, `${row.label}: Baseload price ${fmtPrice(row.baseload)} EUR/MWh`);
-        chart.append(capturedBar, baseloadBar);
+        chart.append(capturedBar);
+        if (baseloadVisible) {
+          attachBarTooltip(baseloadBar, `${row.label}: Baseload price ${fmtPrice(row.baseload)} EUR/MWh`);
+          chart.append(baseloadBar);
+        }
         chart.append(el("text", { class: "tick", x: margin.left + index * slot + slot / 2, y: height - 28, "text-anchor": "middle" }, row.label));
       });
-      chart.append(el("text", { class: "axis-label", x: margin.left, y: height - 12 }, "Month"));
+      chart.append(el("text", { class: "axis-label", x: margin.left, y: height - 12 }, meta.heading));
 
-      tableHead.innerHTML = "<tr><th>Month</th><th>Captured price</th><th>Baseload average</th><th>Capture rate</th></tr>";
+      tableHead.innerHTML = `<tr><th>${meta.heading}</th><th>Captured price</th>${baseloadVisible ? "<th>Baseload average</th>" : ""}<th>Capture rate</th></tr>`;
       tableBody.innerHTML = rows.map((row) => `
         <tr>
-          <td>${monthLabel(row.monthKey)}</td>
+          <td>${meta.value === "month" ? monthLabel(row.monthKey) : row.label}</td>
           <td>${fmtPrice(row.captured)}</td>
-          <td>${fmtPrice(row.baseload)}</td>
+          ${baseloadVisible ? `<td>${fmtPrice(row.baseload)}</td>` : ""}
           <td>${fmtRate(row.captureRate)}</td>
         </tr>
       `).join("");
     }
 
     function drawMonthlyRate() {
-      const rows = monthlyRows();
-      chartTitle.textContent = `${countrySelect.value}: monthly captured rate, ${yearSelect.value}`;
+      const rows = trendRows();
+      const meta = trendMeta();
+      const baseloadVisible = showBaseload.checked;
+      const context = meta.value === "day" ? `, ${monthLabel(monthSelect.value)}` : meta.value === "month" ? `, ${yearSelect.value}` : "";
+      chartTitle.textContent = `${countrySelect.value}: ${meta.label} captured rate${context}`;
       legend.innerHTML = `<span><i class="swatch" style="background: var(--green)"></i>Captured rate</span>`;
       chart.innerHTML = "";
 
@@ -551,21 +638,24 @@
         chart.append(rateBar);
         chart.append(el("text", { class: "tick", x: margin.left + index * slot + slot / 2, y: height - 28, "text-anchor": "middle" }, row.label));
       });
-      chart.append(el("text", { class: "axis-label", x: margin.left, y: height - 12 }, "Month"));
+      chart.append(el("text", { class: "axis-label", x: margin.left, y: height - 12 }, meta.heading));
 
-      tableHead.innerHTML = "<tr><th>Month</th><th>Captured rate</th><th>Captured price</th><th>Baseload average</th></tr>";
+      tableHead.innerHTML = `<tr><th>${meta.heading}</th><th>Captured rate</th><th>Captured price</th>${baseloadVisible ? "<th>Baseload average</th>" : ""}</tr>`;
       tableBody.innerHTML = rows.map((row) => `
         <tr>
-          <td>${monthLabel(row.monthKey)}</td>
+          <td>${meta.value === "month" ? monthLabel(row.monthKey) : row.label}</td>
           <td>${fmtRate(row.captureRate)}</td>
           <td>${fmtPrice(row.captured)}</td>
-          <td>${fmtPrice(row.baseload)}</td>
+          ${baseloadVisible ? `<td>${fmtPrice(row.baseload)}</td>` : ""}
         </tr>
       `).join("");
     }
 
     function render() {
-      monthSelect.disabled = viewSelect.value !== "hourly";
+      const isHourly = viewSelect.value === "hourly";
+      granularitySelect.disabled = isHourly;
+      yearSelect.disabled = !isHourly && granularitySelect.value === "year";
+      monthSelect.disabled = isHourly ? false : granularitySelect.value !== "day";
       if (viewSelect.value === "monthly") {
         drawMonthly();
       } else if (viewSelect.value === "monthly_rate") {
@@ -603,6 +693,8 @@
     yearSelect.addEventListener("change", updateYear);
     monthSelect.addEventListener("change", render);
     technologySelect.addEventListener("change", render);
+    granularitySelect.addEventListener("change", render);
+    showBaseload.addEventListener("change", render);
     viewSelect.addEventListener("change", render);
 
     if (window.SPOT_PRICE_DATA && window.GENERATION_PROFILE_DATA) {
