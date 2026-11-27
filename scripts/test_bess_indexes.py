@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import unittest
 from pathlib import Path
 
@@ -61,6 +62,20 @@ class SpreadIndexTests(unittest.TestCase):
         self.assertIsNotNone(MODULE.daily_spread_indexes(list(range(23)))["tb4Spread"])
         self.assertIsNotNone(MODULE.daily_spread_indexes(list(range(25)))["tb4Spread"])
         self.assertIsNone(MODULE.daily_spread_indexes(list(range(22)))["tb1Spread"])
+
+    def test_missing_pv_profile_uses_estimated_fallback(self):
+        with MODULE.PV_PROFILE_SOURCE.open("r", encoding="utf-8") as handle:
+            configured = json.load(handle)["countries"]
+        expected = set(configured) | {"MDA"}
+        _, profiles = MODULE.load_country_pv_profiles(
+            expected,
+            {"ITA": "Italy", "MDA": "Moldova"},
+        )
+        self.assertIn("MDA", profiles)
+        self.assertEqual(profiles["MDA"]["method"], "proxy_mean_fallback")
+        self.assertTrue(profiles["MDA"]["isEstimated"])
+        self.assertEqual(set(profiles["MDA"]["months"]), {f"{month:02d}" for month in range(1, 13)})
+        self.assertAlmostEqual(sum(profiles["MDA"]["months"]["07"]), 1.0)
 
 
 if __name__ == "__main__":

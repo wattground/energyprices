@@ -55,7 +55,7 @@ def mean_monthly_profiles(profiles):
     }
 
 
-def load_country_pv_profiles(expected_iso3_codes):
+def load_country_pv_profiles(expected_iso3_codes, country_names=None):
     if not PV_PROFILE_SOURCE.exists():
         raise FileNotFoundError(f"PV profile source not found: {PV_PROFILE_SOURCE}")
     with PV_PROFILE_SOURCE.open("r", encoding="utf-8") as handle:
@@ -125,14 +125,59 @@ def load_country_pv_profiles(expected_iso3_codes):
         resolve(iso3)
 
     missing = set(expected_iso3_codes) - set(resolved)
+    if missing:
+        # Ember can add countries before a matching PV profile is available.
+        # Keep the build moving with a transparent mean-profile fallback.
+        fallback_profiles = list(resolved.values())
+        fallback_raw_months = mean_monthly_profiles([
+            profile["rawMonths"] for profile in fallback_profiles
+        ])
+        fallback_source_countries = [
+            {
+                "iso3": profile["iso3"],
+                "name": profile["name"],
+                "weight": 1.0 / len(fallback_profiles),
+            }
+            for profile in fallback_profiles
+        ]
+        fallback_sheet_weights = defaultdict(float)
+        for profile in fallback_profiles:
+            for item in profile["sourceSheets"]:
+                fallback_sheet_weights[item["sheet"]] += item["weight"] / len(fallback_profiles)
+
+        for iso3 in sorted(missing):
+            name = (country_names or {}).get(iso3, iso3)
+            resolved[iso3] = {
+                "name": name,
+                "label": name,
+                "iso3": iso3,
+                "method": "proxy_mean_fallback",
+                "isEstimated": True,
+                "sourceCountries": fallback_source_countries,
+                "sourceSheets": [
+                    {"sheet": sheet, "weight": weight}
+                    for sheet, weight in sorted(fallback_sheet_weights.items())
+                ],
+                "months": {
+                    month: normalize(values)
+                    for month, values in fallback_raw_months.items()
+                },
+                "rawMonths": fallback_raw_months,
+                "dailySums": {
+                    month: sum(values)
+                    for month, values in fallback_raw_months.items()
+                },
+            }
+
     extra = set(resolved) - set(expected_iso3_codes)
-    if missing or extra:
+    if extra:
         raise ValueError(f"PV country coverage mismatch; missing={sorted(missing)}, extra={sorted(extra)}")
     return source, resolved
 
 
 def generation_profiles_payload(countries):
-    pv_source, pv_countries = load_country_pv_profiles(countries.values())
+    country_names = {iso3: name for name, iso3 in countries.items()}
+    pv_source, pv_countries = load_country_pv_profiles(countries.values(), country_names)
     technologies = {
         "solar_pv": {
             "label": "Solar PV",
