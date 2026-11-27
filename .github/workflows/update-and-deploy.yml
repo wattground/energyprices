@@ -210,6 +210,10 @@ jobs:
           test -s .vercel/output/static/index.html
           test -s .vercel/output/static/data/spot_prices.js
           test -s .vercel/output/static/data/colocation_prices/DEU.js
+          # The JSON files are build intermediates; the dashboards consume the
+          # generated JavaScript payloads. Exclude them from Vercel because
+          # spot_prices.json alone can exceed Vercel's 100 MB file limit.
+          find .vercel/output/static/data -type f -name '*.json' -delete
           node -e 'require("node:fs").writeFileSync(".vercel/output/config.json", JSON.stringify({version: 3}))'
 
       - name: Deploy to Vercel production

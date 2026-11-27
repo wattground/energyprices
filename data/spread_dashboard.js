@@ -34,8 +34,15 @@
       .format(new Date(year, month - 1, 1));
   };
   const metric = () => config.metrics[metricSelect.value];
-  const unit = () => unitSelect.value === "year" ? "EUR/MW/year" : "EUR/MW/day";
-  const scale = value => value * (unitSelect.value === "year" ? 365 : 1);
+  const unit = () => unitSelect.value === "year" ? "EUR/MW/year" : unitSelect.value === "mwh" ? "EUR/MWh" : "EUR/MW/day";
+  const scale = value => {
+    const annualized = value * (unitSelect.value === "year" ? 365 : 1);
+    const item = metric();
+    const hourlyNormalization = unitSelect.value === "mwh"
+      ? item.index <= 2 ? item.index + 1 : item.index >= 3 ? 2 : 1
+      : 1;
+    return annualized / hourlyNormalization;
+  };
 
   function populateCountries() {
     countrySelect.innerHTML = "";
