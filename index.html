@@ -21,17 +21,17 @@
     </nav>
     <section class="market" aria-label="Latest country market snapshot">
       <div class="results-preview-heading"><h2>Results preview</h2><p>A quick look at the selected market. Open a dashboard above to explore further.</p></div>
-      <div class="market-head"><div class="market-country"><label class="eyebrow" for="countrySelect">LATEST PRICES</label><select id="countrySelect" aria-label="Country"></select><p id="latestDate" role="status">Loading daily data…</p></div><div class="date-controls"><label for="priceDate">Market date · year / month / day<input id="priceDate" type="date"></label><button id="latestDay" type="button">Latest day</button></div></div>
+      <div class="market-head"><div class="market-country"><label class="eyebrow" for="countrySelect">LATEST PRICES</label><select id="countrySelect" aria-label="Country"></select><p id="latestDate" role="status">Loading daily data…</p></div><div class="date-controls"><label for="priceDate">Market date · year / month / day<input id="priceDate" type="date"></label><label for="tbxUnit">TBx unit<select id="tbxUnit"><option value="mwh">EUR/MWh</option><option value="year">EUR/MW/y</option></select></label><button id="latestDay" type="button">Latest day</button></div></div>
       <div class="charts">
-        <article class="chart-card"><div class="chart-heading hourly-heading"><div><h3>Day-Ahead hourly curve</h3><p id="hourlyDate">Loading hourly data…</p></div><div class="metrics" aria-label="Daily price and spreads"><div><span>Average</span><strong id="hourlyAverage">—</strong><small>€/MWh</small></div><div><span>TBx 2</span><strong id="tb2">—</strong><small>€/MWh</small></div><div><span>TBx 4</span><strong id="tb4">—</strong><small>€/MWh</small></div></div></div>
+        <article class="chart-card"><div class="chart-heading hourly-heading"><div><h3>Day-Ahead hourly curve</h3><p id="hourlyDate">Loading hourly data…</p></div><div class="metrics" aria-label="Daily price and spreads"><div><span>Average</span><strong id="hourlyAverage">—</strong><small>€/MWh</small></div><div><span>TBx 2</span><strong id="tb2">—</strong><small id="tb2Unit">EUR/MWh</small></div><div><span>TBx 4</span><strong id="tb4">—</strong><small id="tb4Unit">EUR/MWh</small></div></div></div>
           <div class="legend"><span><i class="base"></i>Day-Ahead · €/MWh</span><span><i class="range"></i>Previous 30 days · min–max</span><span><i class="average"></i>Previous 30 days · hourly average</span></div>
           <div id="hourlyChart" class="chart" aria-live="polite"></div>
           <a class="chart-link" href="day_ahead_grid_test.html">View all countries · Day-Ahead curves <b aria-hidden="true">→</b></a>
           <p id="hourlyCoverage" class="note"></p>
-          <p class="note">TBx 2 / 4 = average spread between the highest 2 / 4 one-hour prices and the lowest 2 / 4. Reported in €/MWh; theoretical, without chronological dispatch or efficiency constraints.</p>
+          <p class="note">TBx 2 / 4 = average spread between the highest 2 / 4 one-hour prices and the lowest 2 / 4. Use the TBx unit menu to view €/MWh or annualized EUR/MW/y; theoretical, without chronological dispatch or efficiency constraints.</p>
         </article>
         <article class="chart-card"><div class="chart-heading"><div><h3>TB2 spread trend</h3><p id="tb2TrendDates">Loading TB2 data…</p></div><div class="period-controls" role="group" aria-label="TB2 trend period"><button type="button" class="active" data-trend-period="daily" data-trend-target="tb2">Daily</button><button type="button" data-trend-period="monthly" data-trend-target="tb2">Monthly</button></div></div>
-          <div class="legend"><span><i class="tb2line"></i>TB2 · €/MWh</span><span><i class="average"></i>Selected period average</span></div>
+          <div class="legend"><span><i class="tb2line"></i>TB2 · <span id="tb2TrendUnit">EUR/MWh</span></span><span><i class="average"></i>Selected period average</span></div>
           <div id="tb2TrendChart" class="chart" aria-live="polite"></div>
           <p id="tb2TrendCoverage" class="note"></p>
         </article>

@@ -3,6 +3,8 @@
   const $ = id => document.getElementById(id), data = window.SPOT_PRICE_DATA;
   const DAY = 86400000, blue = '#397cc2', gold = '#c49b36';
   const finite = x => typeof x === 'number' && Number.isFinite(x);
+  const tbxUnitLabel = () => $('tbxUnit')?.value === 'year' ? 'EUR/MW/y' : 'EUR/MWh';
+  const scaleTbx = (value, hours) => $('tbxUnit')?.value === 'year' && finite(value) ? value * hours * 365 : value;
   const trendDays = () => Math.max(1, Number(window.MARKET_TREND_WINDOW) || 30);
   const fmt = x => finite(x) ? x.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
   const escape = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -49,9 +51,9 @@
     [...new Set([0,Math.round((labels.length-1)/3),Math.round((labels.length-1)*2/3),labels.length-1])].forEach(i=>svg+=`<text x="${x(i)}" y="${h-15}" text-anchor="${i===0?'start':i===labels.length-1?'end':'middle'}" font-size="10" fill="#6c7871">${escape(labels[i])}</text>`);
     return {svg,x,y,w,h,l,r};
   }
-  function line(points,key,color,f,label,dashed=false) {
+  function line(points,key,color,f,label,dashed=false,unit='EUR/MWh') {
     let path='',open=false,marks='';
-    points.forEach((p,i)=>{if(!finite(p[key])){open=false;return;}path+=`${open?'L':'M'}${f.x(i)},${f.y(p[key])} `;open=true;marks+=`<circle cx="${f.x(i)}" cy="${f.y(p[key])}" r="3" fill="${color}" opacity="0"><title>${escape(p.date||p.label)} · ${escape(label)}: ${fmt(p[key])} €/MWh</title></circle>`;});
+    points.forEach((p,i)=>{if(!finite(p[key])){open=false;return;}path+=`${open?'L':'M'}${f.x(i)},${f.y(p[key])} `;open=true;marks+=`<circle cx="${f.x(i)}" cy="${f.y(p[key])}" r="3" fill="${color}" opacity="0"><title>${escape(p.date||p.label)} · ${escape(label)}: ${fmt(p[key])} ${escape(unit)}</title></circle>`;});
     return `<path d="${path}" fill="none" stroke="${color}" stroke-width="${dashed?1.1:2.5}" stroke-linejoin="round"${dashed?' class="historical-hourly-average" stroke-dasharray="4 5" stroke-opacity="0.75"':''}/>${marks}`;
   }
   function drawTrend(rows,latest) {
@@ -85,18 +87,22 @@
   const periodSelection = {tb2:'daily', captured:'daily'};
   function periodPoints(rows, key, period, end) {
     const valid = rows.filter(row => row.date <= end && finite(row[key]));
-    if(period === 'monthly') {
+    if(period === 'monthly' || period === 'yearly') {
       const groups = new Map();
       valid.forEach(row => {
-        const month = row.date.slice(0, 7), group = groups.get(month) || [];
-        group.push(row[key]); groups.set(month, group);
+        const bucket = period === 'yearly' ? row.date.slice(0, 4) : row.date.slice(0, 7), group = groups.get(bucket) || [];
+        group.push(row[key]); groups.set(bucket, group);
       });
-      return [...groups.entries()].slice(-12).map(([date, values]) => ({date, value:values.reduce((sum, value) => sum + value, 0) / values.length}));
+      const windowDays = trendDays();
+      const limit = period === 'yearly' ? 5 : period === 'monthly' ? Math.max(1, Math.ceil(windowDays / 30)) : windowDays;
+      return [...groups.entries()].slice(-limit).map(([date, values]) => ({date, value:values.reduce((sum, value) => sum + value, 0) / values.length}));
     }
-    return valid.slice(-90).map(row => ({date:row.date, value:row[key]}));
+    return valid.slice(-trendDays()).map(row => ({date:row.date, value:row[key]}));
   }
   function periodLabel(date, period) {
-    return period === 'monthly'
+    return period === 'yearly'
+      ? date
+      : period === 'monthly'
       ? new Intl.DateTimeFormat('en-GB', {month:'short', year:'2-digit', timeZone:'UTC'}).format(new Date(`${date}-01T00:00:00Z`))
       : dateLabel(date);
   }
@@ -108,20 +114,40 @@
       $(coverageId).textContent='';
       return;
     }
+    const unit = key === 'tb2' ? tbxUnitLabel() : 'EUR/MWh';
+    if(key === 'tb2') points.forEach(point => { point.value = scaleTbx(point.value, 2); });
     const average = points.reduce((sum, point) => sum + point.value, 0) / points.length;
     points.forEach(point => { point.average = average; });
     const labels = points.map(point => periodLabel(point.date, period));
-    const f = frame(points.flatMap(point => [point.value, point.average]), labels, '€/MWh');
-    let svg = f.svg + line(points, 'average', '#899b90', f, `${title} average`, true) + line(points, 'value', color, f, title);
-    svg += `<circle cx="${f.x(points.length - 1)}" cy="${f.y(points.at(-1).value)}" r="4" fill="${color}"><title>${title}: ${fmt(points.at(-1).value)} €/MWh</title></circle>`;
+    const f = frame(points.flatMap(point => [point.value, point.average]), labels, unit);
+    let svg = f.svg + line(points, 'average', '#899b90', f, `${title} average`, true, unit) + line(points, 'value', color, f, title, false, unit);
+    svg += `<circle cx="${f.x(points.length - 1)}" cy="${f.y(points.at(-1).value)}" r="4" fill="${color}"><title>${title}: ${fmt(points.at(-1).value)} ${unit}</title></circle>`;
     $(chartId).innerHTML = svg + '</svg>';
     const first = periodLabel(points[0].date, period), last = periodLabel(points.at(-1).date, period);
-    $(datesId).textContent = `${first} – ${last} · ${period === 'monthly' ? 'monthly averages' : 'daily values'}`;
-    $(coverageId).textContent = `${points.length} ${period === 'monthly' ? 'months' : 'days'} shown · average ${fmt(average)} €/MWh.`;
+    const label = period === 'yearly' ? 'yearly averages' : period === 'monthly' ? 'monthly averages' : 'daily values';
+    const countLabel = period === 'yearly' ? 'years' : period === 'monthly' ? 'months' : 'days';
+    $(datesId).textContent = `${first} – ${last} · ${label}`;
+    $(coverageId).textContent = `${points.length} ${countLabel} shown · average ${fmt(average)} ${unit}.`;
   }
   function drawPeriodTrends(rows, end) {
     drawPeriodTrend(rows, 'tb2', periodSelection.tb2, end, 'tb2TrendChart', 'tb2TrendDates', 'tb2TrendCoverage', '#8b63b6', 'TB2');
     drawPeriodTrend(rows, 'pv', periodSelection.captured, end, 'capturedTrendChart', 'capturedTrendDates', 'capturedTrendCoverage', gold, 'Captured PV');
+  }
+  function exportTrendExcel(target) {
+    const country = $('countrySelect').value, rows = dailyRows(country), end = $('priceDate').value || rows.at(-1)?.date;
+    const period = periodSelection[target], key = target === 'tb2' ? 'tb2' : 'pv';
+    const title = target === 'tb2' ? 'TB2' : 'Captured PV';
+    const points = periodPoints(rows, key, period, end);
+    if(!points.length) return;
+    const unit = target === 'tb2' ? tbxUnitLabel() : 'EUR/MWh';
+    if(target === 'tb2') points.forEach(point => { point.value = scaleTbx(point.value, 2); });
+    const average = points.reduce((sum, point) => sum + point.value, 0) / points.length;
+    const cell = value => `<td>${escape(value)}</td>`;
+    const tableRows = points.map(point => `<tr>${cell(point.date)}${cell(title)}${cell(period)}${cell(fmt(point.value))}${cell(fmt(average))}${cell(unit)}</tr>`).join('');
+    const html = `<html><head><meta charset="utf-8"></head><body><table><thead><tr><th>Period</th><th>Metric</th><th>View</th><th>Value</th><th>View average</th><th>Unit</th></tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+    const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8'}), url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = `${target === 'tb2' ? 'tb2' : 'captured-price'}-${country.replace(/\s+/g, '-').toLowerCase()}-${period}.xls`;
+    document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   function drawHourly(source,date) {
     const days = trendDays(), threshold = Math.ceil(days * .9);
@@ -150,7 +176,8 @@
     points.forEach((p,i)=>{if(p.range)segment.push(i);else flush();});flush();
     points.forEach((p,i)=>{if(p.range)band+=`<circle class="range-tooltip" data-hour="${escape(p.label)}" data-min="${p.range.min}" data-max="${p.range.max}" data-days="${p.range.days}" cx="${f.x(i)}" cy="${f.y((p.range.min+p.range.max)/2)}" r="6" fill="transparent"><title>${escape(p.label)} · previous ${days} days: ${fmt(p.range.min)}–${fmt(p.range.max)} €/MWh · ${p.range.days}/${days} days</title></circle>`;});
     $('hourlyChart').innerHTML=f.svg+band+line(points,'historicalMean','#899b90',f,`Previous ${days} days · hourly average`,true)+line(points,'price',blue,f,'Day-Ahead')+'</svg>';
-    $('hourlyAverage').textContent=fmt(mean);if($('tb1'))$('tb1').textContent=fmt(spread(1));$('tb2').textContent=fmt(spread(2));$('tb4').textContent=fmt(spread(4));
+    $('hourlyAverage').textContent=fmt(mean);if($('tb1'))$('tb1').textContent=fmt(spread(1));$('tb2').textContent=fmt(scaleTbx(spread(2),2));$('tb4').textContent=fmt(scaleTbx(spread(4),4));
+    $('tb2Unit').textContent=tbxUnitLabel();$('tb4Unit').textContent=tbxUnitLabel();$('tb2TrendUnit').textContent=tbxUnitLabel();
     $('hourlyDate').textContent=dateLabel(date,true)+' · market-local hours';
     const unavailable=points.filter(p=>!p.range).length;
     $('hourlyCoverage').textContent=`${rows.length} hourly observations. Grey range and dashed hourly average: ${dateLabel(iso(time(date)-days*DAY),true)} – ${dateLabel(iso(time(date)-DAY),true)}, excluding the selected day. ${unavailable?`Missing data: range and average omitted for ${unavailable} displayed hour(s) with fewer than ${threshold} available days. `:''}${complete?'Market-local hours; repeated DST hours enter the min–max separately and are averaged within each day before calculating the historical hourly mean.':'Incomplete selected day: daily average uses available hours; TBx values are withheld.'}`;
@@ -188,7 +215,37 @@
   if(data.series.Germany)$('countrySelect').value='Germany';
   $('countrySelect').addEventListener('change',()=>update(true));
   $('priceDate').addEventListener('change',()=>update());
+  $('tbxUnit').addEventListener('change',()=>update(false));
   $('latestDay').addEventListener('click',()=>update(true));
+  document.querySelectorAll('.period-controls').forEach(group => {
+    if (group.querySelector('[data-trend-period="yearly"]')) return;
+    const target = group.querySelector('[data-trend-target]')?.dataset.trendTarget;
+    if (!target) return;
+    const button = document.createElement('button');
+    button.type = 'button'; button.dataset.trendPeriod = 'yearly'; button.dataset.trendTarget = target; button.textContent = 'Yearly';
+    group.append(button);
+    const exportButton = document.createElement('button');
+    exportButton.type = 'button'; exportButton.className = 'download-button'; exportButton.dataset.exportTrend = target; exportButton.textContent = 'Excel';
+    group.append(exportButton);
+  });
+  const charts = document.querySelector('.charts');
+  if (charts && !document.querySelector('.window-controls')) {
+    const controls = document.createElement('div');
+    controls.className = 'window-controls';
+    controls.setAttribute('role', 'group');
+    controls.setAttribute('aria-label', 'Historical average period');
+    controls.innerHTML = '<span class="window-label">Historical window</span>' + [15, 30, 90, 180, 365].map(days => `<button class="window-button${days === 30 ? ' active' : ''}" type="button" data-window-days="${days}" aria-pressed="${days === 30 ? 'true' : 'false'}">${days} days</button>`).join('');
+    charts.before(controls);
+  }
+  window.MARKET_TREND_WINDOW = 30;
+  document.querySelectorAll('[data-window-days]').forEach(button => button.addEventListener('click', () => {
+    window.MARKET_TREND_WINDOW = Number(button.dataset.windowDays) || 30;
+    document.querySelectorAll('[data-window-days]').forEach(item => {
+      const active = item.dataset.windowDays === String(window.MARKET_TREND_WINDOW);
+      item.classList.toggle('active', active); item.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    window.dispatchEvent(new Event('market-trend-window-change'));
+  }));
   document.querySelectorAll('[data-trend-period]').forEach(button => button.addEventListener('click', () => {
     const target = button.dataset.trendTarget, period = button.dataset.trendPeriod;
     periodSelection[target] = period;
@@ -200,6 +257,7 @@
     const country = $('countrySelect').value, rows = dailyRows(country), end = $('priceDate').value || rows.at(-1)?.date;
     if(end) drawPeriodTrends(rows, end);
   }));
+  document.querySelectorAll('[data-export-trend]').forEach(button => button.addEventListener('click', () => exportTrendExcel(button.dataset.exportTrend)));
   window.addEventListener('market-trend-window-change',()=>update(false));
   update(true);
 })();
