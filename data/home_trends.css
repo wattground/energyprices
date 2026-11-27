@@ -1,0 +1,45 @@
+.charts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chart-heading:has(.period-controls) {
+  min-height: 96px;
+}
+
+.period-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.period-controls button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8faf7;
+  color: var(--muted);
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.period-controls button.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.legend .tb2line { background: #8b63b6; }
+.legend .average {
+  height: 0;
+  border-top: 2px dashed #899b90;
+  background: transparent;
+}
+
+@media (max-width: 580px) {
+  .charts { grid-template-columns: 1fr; }
+  .chart-heading:has(.period-controls) { min-height: auto; }
+  .period-controls { margin-top: 6px; }
+}

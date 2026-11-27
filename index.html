@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>European power market monitor</title>
   <link rel="stylesheet" href="data/home.css">
+  <link rel="stylesheet" href="data/home_trends.css">
   <style>
   </style>
 </head>
@@ -28,13 +29,25 @@
           <a class="chart-link" href="day_ahead_grid_test.html">View all countries · Day-Ahead curves <b aria-hidden="true">→</b></a>
           <p id="hourlyCoverage" class="note"></p>
           <p class="note">TBx 2 / 4 = average spread between the highest 2 / 4 one-hour prices and the lowest 2 / 4. Reported in €/MWh; theoretical, without chronological dispatch or efficiency constraints.</p>
-        </article><article class="chart-card"><div class="chart-heading"><div><h3>Baseload & solar capture</h3><p id="trendDates">Last 30 calendar days · €/MWh</p></div></div>
+        </article>
+        <article class="chart-card"><div class="chart-heading"><div><h3>TB2 spread trend</h3><p id="tb2TrendDates">Loading TB2 data…</p></div><div class="period-controls" role="group" aria-label="TB2 trend period"><button type="button" class="active" data-trend-period="daily" data-trend-target="tb2">Daily</button><button type="button" data-trend-period="monthly" data-trend-target="tb2">Monthly</button></div></div>
+          <div class="legend"><span><i class="tb2line"></i>TB2 · €/MWh</span><span><i class="average"></i>Selected period average</span></div>
+          <div id="tb2TrendChart" class="chart" aria-live="polite"></div>
+          <p id="tb2TrendCoverage" class="note"></p>
+        </article>
+        <article class="chart-card"><div class="chart-heading"><div><h3>Baseload & solar capture</h3><p id="trendDates">Last 30 calendar days · €/MWh</p></div></div>
           <div class="legend"><span><i class="base"></i>Baseload · 30-day average</span><span><i class="pv"></i>Captured PV · 30-day average</span></div>
           <div id="trendChart" class="chart" aria-live="polite"></div>
           <a class="chart-link" href="price_trend_grid_test.html">View all countries · Baseload & solar capture <b aria-hidden="true">→</b></a>
           <p id="trendCoverage" class="note error" role="status" hidden></p>
           <p class="note">Lines: trailing 30-day arithmetic means, calculated on available days with at most 3 missing days (10%) per window. Nulls are excluded, never treated as zero. More than 3 missing days in the selected window hides the affected series (Missing data). Diamonds: actual daily mean prices on the selected day, not moving averages; PV means are generation-weighted.</p>
-        </article></div></section><footer><span>Source: Ember, Entsoe</span><span>For private use. Results not verified. Created by Marco P.</span></footer>
+        </article>
+        <article class="chart-card"><div class="chart-heading"><div><h3>Captured price trend</h3><p id="capturedTrendDates">Loading captured price data…</p></div><div class="period-controls" role="group" aria-label="Captured price trend period"><button type="button" class="active" data-trend-period="daily" data-trend-target="captured">Daily</button><button type="button" data-trend-period="monthly" data-trend-target="captured">Monthly</button></div></div>
+          <div class="legend"><span><i class="pv"></i>Captured PV · €/MWh</span><span><i class="average"></i>Selected period average</span></div>
+          <div id="capturedTrendChart" class="chart" aria-live="polite"></div>
+          <p id="capturedTrendCoverage" class="note"></p>
+        </article>
+      </div></section><footer><span>Source: Ember, Entsoe</span><span>For private use. Results not verified. Created by Marco P.</span></footer>
   </main>
   <script src="data/spot_prices.js"></script>
   <script src="data/home.js"></script>

@@ -1,6 +1,22 @@
 (() => {
   const mobileStyle = document.createElement('style');
   mobileStyle.textContent = `
+    .panel-launch {
+      display: grid;
+      gap: 10px;
+      min-height: 180px;
+      align-content: center;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--ink);
+      text-decoration: none;
+      box-shadow: 0 8px 22px rgba(22, 31, 25, 0.06);
+    }
+    .panel-launch strong { font-size: 20px; }
+    .panel-launch span { color: var(--muted); font-size: 13px; }
+    .panel-launch:hover { border-color: var(--green, #20856d); }
     @media (max-width: 800px) {
       body { overflow-x: hidden; }
       aside {
@@ -25,13 +41,19 @@
         white-space: nowrap;
       }
       .content { padding-top: 18px; }
-      .panel iframe {
-        height: calc(100vh - 170px) !important;
-        min-height: 520px !important;
-      }
+      .panel-launch { min-height: 150px; padding: 22px; }
     }
   `;
   document.head.append(mobileStyle);
+
+  document.querySelectorAll('.panel iframe').forEach(frame => {
+    const link = document.createElement('a');
+    const href = frame.getAttribute('src');
+    link.className = 'panel-launch';
+    link.href = href;
+    link.innerHTML = `<strong>${frame.title || 'Open dashboard'}</strong><span>Open the full dashboard in a flexible page layout.</span>`;
+    frame.replaceWith(link);
+  });
 
   const colors = {
     'spot_prices.html': ['#f1f4f1', '#e7ece8', '#9eaaa1'],

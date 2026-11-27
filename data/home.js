@@ -26,7 +26,7 @@
   }
   function dailyRows(country) {
     const rows=[];
-    for(const yd of Object.values(data.series[country].years)) for(const [month,md] of Object.entries(yd.months)) for(const d of md.days) rows.push({date:`${month}-${String(d.day).padStart(2,'0')}`,base:d.averagePrice,pv:d.capturedPrices?.solar_pv,observations:d.observations});
+    for(const yd of Object.values(data.series[country].years)) for(const [month,md] of Object.entries(yd.months)) for(const d of md.days) rows.push({date:`${month}-${String(d.day).padStart(2,'0')}`,base:d.averagePrice,pv:d.capturedPrices?.solar_pv,tb2:finite(d.spreadIndexes?.[1])?d.spreadIndexes[1]/2:null,observations:d.observations});
     return rows.sort((a,b)=>a.date.localeCompare(b.date));
   }
   function trend(rows, end) {
@@ -81,6 +81,47 @@
     }
     $('trendChart').innerHTML=svg+'</svg>';
     $('trendDates').textContent=`${dateLabel(points[0].date)} – ${dateLabel(latest.date,true)} · ${days}-day visible window`;
+  }
+  const periodSelection = {tb2:'daily', captured:'daily'};
+  function periodPoints(rows, key, period, end) {
+    const valid = rows.filter(row => row.date <= end && finite(row[key]));
+    if(period === 'monthly') {
+      const groups = new Map();
+      valid.forEach(row => {
+        const month = row.date.slice(0, 7), group = groups.get(month) || [];
+        group.push(row[key]); groups.set(month, group);
+      });
+      return [...groups.entries()].slice(-12).map(([date, values]) => ({date, value:values.reduce((sum, value) => sum + value, 0) / values.length}));
+    }
+    return valid.slice(-90).map(row => ({date:row.date, value:row[key]}));
+  }
+  function periodLabel(date, period) {
+    return period === 'monthly'
+      ? new Intl.DateTimeFormat('en-GB', {month:'short', year:'2-digit', timeZone:'UTC'}).format(new Date(`${date}-01T00:00:00Z`))
+      : dateLabel(date);
+  }
+  function drawPeriodTrend(rows, key, period, end, chartId, datesId, coverageId, color, title) {
+    const points = periodPoints(rows, key, period, end);
+    if(!points.length) {
+      $(chartId).innerHTML='<div class="empty">No data available</div>';
+      $(datesId).textContent='No data available';
+      $(coverageId).textContent='';
+      return;
+    }
+    const average = points.reduce((sum, point) => sum + point.value, 0) / points.length;
+    points.forEach(point => { point.average = average; });
+    const labels = points.map(point => periodLabel(point.date, period));
+    const f = frame(points.flatMap(point => [point.value, point.average]), labels, '€/MWh');
+    let svg = f.svg + line(points, 'average', '#899b90', f, `${title} average`, true) + line(points, 'value', color, f, title);
+    svg += `<circle cx="${f.x(points.length - 1)}" cy="${f.y(points.at(-1).value)}" r="4" fill="${color}"><title>${title}: ${fmt(points.at(-1).value)} €/MWh</title></circle>`;
+    $(chartId).innerHTML = svg + '</svg>';
+    const first = periodLabel(points[0].date, period), last = periodLabel(points.at(-1).date, period);
+    $(datesId).textContent = `${first} – ${last} · ${period === 'monthly' ? 'monthly averages' : 'daily values'}`;
+    $(coverageId).textContent = `${points.length} ${period === 'monthly' ? 'months' : 'days'} shown · average ${fmt(average)} €/MWh.`;
+  }
+  function drawPeriodTrends(rows, end) {
+    drawPeriodTrend(rows, 'tb2', periodSelection.tb2, end, 'tb2TrendChart', 'tb2TrendDates', 'tb2TrendCoverage', '#8b63b6', 'TB2');
+    drawPeriodTrend(rows, 'pv', periodSelection.captured, end, 'capturedTrendChart', 'capturedTrendDates', 'capturedTrendCoverage', gold, 'Captured PV');
   }
   function drawHourly(source,date) {
     const days = trendDays(), threshold = Math.ceil(days * .9);
@@ -138,7 +179,7 @@
       $('hourlyDate').textContent='—';$('trendDates').textContent='—';
       return;
     }
-    $('latestDate').textContent=`${dateLabel(selected.date,true)} · ${weekdayLabel(selected.date)}${selected.date===latest.date?' · latest available day':' · selected day'}`;drawTrend(rows,selected);
+    $('latestDate').textContent=`${dateLabel(selected.date,true)} · ${weekdayLabel(selected.date)}${selected.date===latest.date?' · latest available day':' · selected day'}`;drawTrend(rows,selected);drawPeriodTrends(rows,selected.date);
     try { hourly=hourly||await hourlyData(c.iso3);if(request!==revision)return;drawHourly(hourly,selected.date); }
     catch(e){if(request!==revision)return;$('hourlyDate').textContent=dateLabel(selected.date,true);$('hourlyChart').innerHTML=`<div class="empty error">${escape(e.message)}</div>`;}
   }
@@ -148,6 +189,17 @@
   $('countrySelect').addEventListener('change',()=>update(true));
   $('priceDate').addEventListener('change',()=>update());
   $('latestDay').addEventListener('click',()=>update(true));
+  document.querySelectorAll('[data-trend-period]').forEach(button => button.addEventListener('click', () => {
+    const target = button.dataset.trendTarget, period = button.dataset.trendPeriod;
+    periodSelection[target] = period;
+    document.querySelectorAll(`[data-trend-target="${target}"]`).forEach(item => {
+      const active = item.dataset.trendPeriod === period;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    const country = $('countrySelect').value, rows = dailyRows(country), end = $('priceDate').value || rows.at(-1)?.date;
+    if(end) drawPeriodTrends(rows, end);
+  }));
   window.addEventListener('market-trend-window-change',()=>update(false));
   update(true);
 })();
