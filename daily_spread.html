@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TBx Spreads</title>
   <link rel="stylesheet" href="data/bess_indexes.css">
+  <script src="data/dashboard_nav.js" defer></script>
 </head>
 <body>
   <main>
@@ -20,9 +21,9 @@
     <section class="controls" aria-label="TBx filters">
       <label>Country<select id="countrySelect"></select></label>
       <label>Index<select id="metricSelect"></select></label>
+      <label>Granularity<select id="granularitySelect"><option value="day">Day</option><option value="month">Month</option><option value="year">Year</option></select></label>
       <label>Year<select id="yearSelect"></select></label>
       <label>Month<select id="monthSelect"></select></label>
-      <label>Granularity<select id="granularitySelect"><option value="day">Day</option><option value="month">Month</option><option value="year">Year</option></select></label>
       <label>Unit<select id="unitSelect"><option value="day">EUR/MW/day</option><option value="year">EUR/MW/year</option><option value="mwh">EUR/MWh</option></select></label>
     </section>
 

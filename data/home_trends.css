@@ -2,6 +2,45 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.window-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.window-label {
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.window-button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8faf7;
+  color: var(--muted);
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.window-button.active {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+
 .chart-heading:has(.period-controls) {
   min-height: 96px;
 }
@@ -31,6 +70,13 @@
   color: #fff;
 }
 
+.period-controls .download-button {
+  margin-left: 4px;
+  border-color: var(--blue);
+  background: #eef4fb;
+  color: var(--blue);
+}
+
 .legend .tb2line { background: #8b63b6; }
 .legend .average {
   height: 0;
@@ -39,6 +85,8 @@
 }
 
 @media (max-width: 580px) {
+  .window-controls { align-items: stretch; }
+  .window-label { flex-basis: 100%; }
   .charts { grid-template-columns: 1fr; }
   .chart-heading:has(.period-controls) { min-height: auto; }
   .period-controls { margin-top: 6px; }

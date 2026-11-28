@@ -228,6 +228,7 @@
     .weekend-swatch { background:#d8dfda; border:1px solid #bdc9c1; }
     .average-swatch { width:22px !important; height:0 !important; border-top:2px dashed var(--green); border-radius:0 !important; }
 </style>
+  <script src="data/dashboard_nav.js" defer></script>
 </head>
 <body>
   <main>
@@ -244,20 +245,20 @@
           <select id="countrySelect"></select>
         </label>
         <label>
-          Year
-          <select id="yearSelect"></select>
-        </label>
-        <label>
-          Month
-          <select id="monthSelect"></select>
-        </label>
-        <label>
           Granularity
           <select id="granularitySelect">
             <option value="day">Day</option>
             <option value="month">Month</option>
             <option value="year">Year</option>
           </select>
+        </label>
+        <label>
+          Year
+          <select id="yearSelect"></select>
+        </label>
+        <label>
+          Month
+          <select id="monthSelect"></select>
         </label>
       </div>
     </header>
